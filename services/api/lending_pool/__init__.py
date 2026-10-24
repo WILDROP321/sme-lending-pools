@@ -1,6 +1,7 @@
 """Application factory shared by the development server and tests."""
 
 import os
+import secrets
 from pathlib import Path
 
 from flask import Flask, jsonify, render_template
@@ -16,16 +17,33 @@ def create_app(test_config=None):
         XRPL_JSON_RPC_URL=os.getenv(
             "XRPL_JSON_RPC_URL", "https://s.devnet.rippletest.net:51234/"
         ),
-        MAX_CONTENT_LENGTH=64 * 1024,
+        MAX_CONTENT_LENGTH=6 * 1024 * 1024,
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Lax",
+        SECRET_KEY=os.getenv("FLASK_SECRET_KEY"),
     )
     if test_config:
         app.config.update(test_config)
     Path(app.instance_path).mkdir(parents=True, exist_ok=True)
+    if not app.config["SECRET_KEY"]:
+        if app.testing:
+            app.config["SECRET_KEY"] = "isolated-test-secret"
+        else:
+            secret_path = Path(app.instance_path) / "session-secret"
+            try:
+                with secret_path.open("x") as secret_file:
+                    os.chmod(secret_path, 0o600)
+                    secret_file.write(secrets.token_hex(32))
+            except FileExistsError:
+                pass
+            app.config["SECRET_KEY"] = secret_path.read_text()
     db.init_app(app)
 
     from .routes import api
 
     app.register_blueprint(api)
+    from .market import market
+    app.register_blueprint(market)
 
     @app.get("/")
     def index():

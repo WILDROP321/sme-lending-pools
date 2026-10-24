@@ -45,7 +45,7 @@ For the demo, use synthetic business and transaction data. Real payment integrat
 
 Python 3.13, Flask, SQLite, and `xrpl-py`, configured for **XRP Ledger (XRPL) Devnet**.
 
-Implemented: a Flask homepage, local pools, demo investor records, pending contribution intents, SME funding requests, review decisions with history, versioned SQLite migrations, demo seeding, and a read-only Devnet status check. Deposits, wallet ownership, disbursement, and repayment are upcoming work. No ledger pool or wallet is created by the starter; local approval sends no funds.
+Implemented: a dark Flask lending app, RLUSD pool simulation, investor accounts and holdings, invoice uploads, risk classification, return calculations, and manual approval with audit history. The original XRP records, contribution intents, migration tools, and read-only Devnet status check remain available. Wallet ownership, real disbursement, repayment, and settlement are future work; local approval sends no funds.
 
 ## Run locally
 
@@ -131,3 +131,16 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md). Pick your assigned GitHub issue, create
 The local draft pool is an application record, not an XRPL AMM or native lending object. The XRPL workstream will choose the appropriate ledger mechanism before adding deposits or payments. Use synthetic business data and Devnet test funds throughout the hackathon.
 
 References: [Flask application factories](https://flask.palletsprojects.com/en/stable/patterns/appfactories/), [XRPL Python quickstart](https://xrpl.org/docs/tutorials/get-started/get-started-python), [XRPL Devnet features](https://xrpl.org/docs/tutorials/advanced-developer-topics/protocol-development/testing-devnet-features).
+
+### RLUSD lending demo
+
+The dark web app includes pool exploration, investor signup/sign-in and personal portfolios, invoice-backed borrower applications, and a manual demo review console. Apply pending migrations using `python -m flask migrate-db`, then start the existing Flask server. The original XRP APIs remain separate.
+
+- **Pools:** Nine fictional businesses use the same risk model as new applications. Borrowing rates, weighted risk, allocations, reserves, and projected pool yields are calculated from the portfolio.
+- **Investors:** Create an account with a name, email, password, risk preference, and risk acknowledgement. Passwords are hashed; a signed session identifies the investor. Deposits are simulated and retry-safe. Each investor sees only their own holdings; old anonymous deposits remain unassigned pool capital.
+- **Borrowers:** Submit business details, a debtor, invoice reference, face value, deadline, requested amount, business age, debtor late-payment rate, and a PDF/PNG/JPEG invoice (maximum 5 MB). A future deadline within 180 days is required; advances cannot exceed 85% of invoice value.
+- **Review:** The local demo console lets a reviewer download the invoice, inspect the score breakdown, record three verification checks and a note, then approve or reject. Approval rechecks the deadline, recalculates terms, and atomically allocates available capital in the assigned pool. Pending and rejected requests never consume capital. Decisions retain an audit record.
+
+This remains a local prototype: the review console has no reviewer authorization, real debtor or document verification is not automated, and no RLUSD moves on a ledger. Invoice content must be inspected manually; upload validation checks size and file signature only. Loan repayments, withdrawals, KYC, and interest settlement are not implemented. Use fictional data and keep the server bound to localhost.
+
+The algorithm, API contract, assumptions, and validation are documented in [docs/MARKET.md](docs/MARKET.md). Set `FLASK_SECRET_KEY` to supply a stable session key; otherwise a private key file is created in the ignored instance directory. Deleting that file invalidates saved sessions.

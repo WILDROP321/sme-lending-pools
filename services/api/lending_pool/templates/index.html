@@ -3,53 +3,47 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SME Lending Pools · Local demo</title>
+  <meta name="color-scheme" content="dark">
+  <title>Flow — Invoice lending</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <script defer src="{{ url_for('static', filename='app.js') }}"></script>
 </head>
 <body>
-<main>
-  <header><a class="brand" href="/">SME / Lending Pools</a><span class="badge">Local demo · No real funds</span></header>
-  <p class="eyebrow">WORKING CAPITAL, WORKING TOGETHER</p>
-  <h1>Tomorrow’s payments.<br>Today’s possibilities.</h1>
-  <p class="intro">Explore a pool and request an advance against a future incoming payment. All records are stored locally for this hackathon prototype.</p>
-  <noscript><p>This demo needs JavaScript to browse pools and submit requests.</p></noscript>
-  <div class="workspace">
-    <section aria-labelledby="pools-title">
-      <div class="section-heading"><h2 id="pools-title">01 / Explore pools</h2><button id="refresh-pools" type="button">Refresh</button></div>
-      <p id="pools-message" role="status">Loading pools…</p>
-      <div id="pools" class="pool-list" aria-label="Available pools"></div>
-      <div id="pool-detail" aria-live="polite"><p>Select a pool to see its details.</p></div>
-      <aside><strong>Investor contributions are coming next.</strong><p>Selecting a pool does not create a contribution or confirm a deposit. Contributions will remain pending until validated ledger reconciliation is available.</p></aside>
-    </section>
-    <section aria-labelledby="request-title">
-      <h2 id="request-title">02 / Request funding</h2>
-      <p>Submit synthetic business details for review. Submission does not approve or transfer funds.</p>
-      <form id="funding-form">
-        <fieldset id="request-fields" disabled>
-          <label for="pool-id">Selected pool</label>
-          <select id="pool-id" required><option value="">Choose a pool</option></select>
-          <label for="business-name">Business name</label>
-          <input id="business-name" maxlength="160" autocomplete="organization" required placeholder="e.g. Demo Bakery">
-          <label for="amount">Requested amount (XRP)</label>
-          <input id="amount" type="text" inputmode="decimal" pattern="[0-9]+([.][0-9]{1,6})?" required aria-describedby="amount-help" placeholder="25.000000">
-          <small id="amount-help">Positive amount, up to 6 decimal places. Stored as integer drops.</small>
-          <label for="payment-date">Expected incoming payment date</label>
-          <input id="payment-date" type="date" required aria-describedby="date-help">
-          <small id="date-help">Choose a future date. The server validates the date.</small>
-          <button class="primary" id="submit-request" type="submit">Submit funding request →</button>
-        </fieldset>
-        <p id="form-message" role="status" aria-live="polite"></p>
-      </form>
-    </section>
-  </div>
-  <section aria-labelledby="requests-title">
-    <div class="section-heading"><h2 id="requests-title">03 / Submitted requests</h2><button id="refresh-requests" type="button">Refresh</button></div>
-    <p>Shared local demo records. “Submitted” means awaiting review.</p>
-    <p id="requests-message" role="status">Loading requests…</p>
-    <div id="requests" class="request-list"></div>
-  </section>
-  <footer>Local prototype · XRP Ledger Devnet · Arya, Gabriel, Benjamin &amp; Matias</footer>
-</main>
+  <header class="topbar">
+    <a class="brand" href="#pools" aria-label="Flow home"><span class="brand-mark">f</span>flow<span class="network">RLUSD</span></a>
+    <nav aria-label="Main navigation">
+      <a href="#pools" data-page="pools">Pools</a>
+      <a href="#portfolio" data-page="portfolio">Portfolio</a>
+      <a href="#borrow" data-page="borrow">Borrow</a>
+      <a href="#review" data-page="review">Demo review</a>
+    </nav>
+    <div id="account"></div>
+  </header>
+  <main>
+    <div id="global-status" role="status" aria-live="polite"></div>
+    <section id="content"><div class="empty">Loading market…</div></section>
+    <noscript>This application needs JavaScript to display pools and submit requests.</noscript>
+  </main>
+  <footer><span><span class="status-dot"></span> Local simulation</span><span>Fictional businesses · No real funds move · Returns are estimates</span></footer>
+  <dialog id="auth-dialog" aria-labelledby="auth-title">
+    <div class="dialog-heading"><span class="eyebrow">INVESTOR ACCOUNT</span><button type="button" id="close-auth" class="icon-button" aria-label="Close account dialog">×</button></div>
+    <h2 id="auth-title">Start investing.</h2>
+    <p id="auth-description" class="muted">Create a local account to track your share of each pool.</p>
+    <div class="segmented"><button type="button" id="register-mode" aria-pressed="true">Create account</button><button type="button" id="login-mode" aria-pressed="false">Sign in</button></div>
+    <form id="auth-form">
+      <fieldset>
+        <div class="register-only"><label>Full name<input name="name" autocomplete="name" maxlength="120" required placeholder="Alex Morgan"></label></div>
+        <label>Email<input name="email" type="email" autocomplete="email" maxlength="254" required placeholder="you@example.com"></label>
+        <label>Password<input name="password" type="password" autocomplete="new-password" minlength="10" maxlength="128" required placeholder="At least 10 characters"></label>
+        <div class="register-only">
+          <label>Preferred risk tier<select name="preference"><option value="core">Core Income · Lower risk</option><option value="balanced">Balanced Growth · Moderate risk</option><option value="opportunity">Opportunity · Higher risk</option></select></label>
+          <label class="check"><input name="risk_acknowledged" type="checkbox" required><span>I understand returns are estimates and invested capital can be lost.</span></label>
+        </div>
+        <button class="primary full" id="auth-submit">Create account</button>
+      </fieldset>
+      <p id="auth-status" class="form-status" role="status"></p>
+    </form>
+    <p class="caption">Local demo accounts. No wallet connection or real deposits.</p>
+  </dialog>
 </body>
 </html>
