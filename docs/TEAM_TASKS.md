@@ -25,6 +25,8 @@ Issues #1 and #2 are assigned in GitHub. Benjamin is named as the owner of #3 an
 
    Backend API ready for UI integration: `POST /api/investors`, `POST /api/contribution-intents`, and intent filtering by investor/pool. Local review endpoints and audit history are also available. See [API.md](API.md) for payloads and [DATABASE.md](DATABASE.md) before upgrading a local database.
 3. **Devnet deposits:** choose and document the ledger mechanism, verify network/account settings, then attach validated transaction hashes to intents. Make reconciliation idempotent so repeated observations cannot credit twice.
+
+   Implemented: `POST /api/contribution-intents/<id>/deposit` verifies a claimed `tx_hash` against Devnet itself (validated, sender, destination, delivered amount) before moving an intent from `pending` to `funded`. See [API.md](API.md) and [LEDGER_DESIGN.md](LEDGER_DESIGN.md).
 4. **SME funding:** add review decisions and enforce available pool balance before disbursement. Record validated ledger results before marking requests funded.
 5. **Repayment:** reconcile receipts and update balances, then build the demo story.
 

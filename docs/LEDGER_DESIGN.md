@@ -25,9 +25,11 @@ token, or any other native "pool" primitive. For this milestone it is:
 - **Idempotent crediting:** reconciliation must key off the transaction's
   `hash`, not off the act of observing it. The same validated transaction can
   be observed more than once (polling, retries, webhooks firing twice) and must
-  only be credited once. See `ledger.ProcessedDeposits` below; a real
-  implementation should back this with a unique constraint on `tx_hash` in
-  whatever table eventually records deposits.
+  only be credited once. Enforced two ways: `ledger_receipts.tx_hash` is
+  `UNIQUE` (migration 003), so the database itself refuses a second row for
+  the same transaction; `ledger.ProcessedDeposits` is the same guard for code
+  paths (scripts, polling loops) that check a transaction before it would hit
+  that constraint.
 
 ## Why not an AMM
 
@@ -60,8 +62,15 @@ the amount they intended to send.
 - `ProcessedDeposits` — in-memory idempotency guard; `record_if_new(result)`
   returns `True` only the first time a given *validated* `tx_hash` is seen.
 
-None of this is wired into a Flask route. Deposits, disbursement, and
-repayment reconciliation are later milestones per `docs/TEAM_TASKS.md`.
+`services/api/lending_pool/deposits.py` wires this into the app:
+`confirm_deposit(client, intent_id, tx_hash)` loads the intent, investor, and
+pool; requires both the investor and pool to have a registered
+`xrpl_address`; calls `fetch_validated_transaction`; checks sender,
+destination, and delivered amount against them; and only then inserts a
+`ledger_receipts` row and flips the intent to `funded`, all in one
+transaction. `POST /api/contribution-intents/<id>/deposit` (see
+[API.md](API.md)) is the only caller. Disbursement and repayment
+reconciliation are later milestones per `docs/TEAM_TASKS.md`.
 
 ## Opt-in Devnet scripts (`scripts/`)
 
@@ -105,10 +114,19 @@ The same hash can also be re-verified at any time with
 `ledger.fetch_validated_transaction(client, tx_hash, intent_id)`, which does not
 depend on having submitted the transaction in the same process.
 
+This exact transaction was also used to exercise `POST
+/api/contribution-intents/<id>/deposit` end to end against live Devnet (not
+mocked): an investor and pool were registered with the `rp6Dm...` and
+`rha12...` addresses above, a `1,000,000`-drop intent was created, and
+confirming the deposit against `EEC615AC...` moved the intent to `funded`.
+Replaying the same hash against a second intent, or re-confirming the first
+intent, both correctly returned 409.
+
 ## Integration result for Arya
 
-`IntegrationResult(tx_hash, validated, amount_drops, intent_id)` is the record
-a future `/api/*` reconciliation endpoint should store once per validated
-`tx_hash`: look up the `funding_requests`/contribution-intent row by
-`intent_id`, and only mark a deposit credited if
-`ProcessedDeposits.record_if_new(result)` returns `True`.
+`IntegrationResult` now also carries `sender_address` and
+`destination_address`, read from the transaction itself
+(`tx_json.Account`/`Destination`), not supplied by the caller. This is the
+record `deposits.confirm_deposit` stores once per validated `tx_hash` in
+`ledger_receipts`, after matching it to the contribution intent's investor
+and pool.

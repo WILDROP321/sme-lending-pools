@@ -1,6 +1,7 @@
-"""XRPL boundary. Read-only Devnet status is used by the running app; the
-Payment/Tx helpers below back the opt-in Devnet proof scripts in scripts/ and
-are not wired into any Flask route yet. See docs/LEDGER_DESIGN.md.
+"""XRPL boundary. Read-only Devnet status, and transaction verification used by
+.deposits to reconcile a contribution intent, are wired into the Flask app.
+submit_test_payment backs the opt-in Devnet proof scripts in scripts/ only.
+See docs/LEDGER_DESIGN.md.
 """
 
 from dataclasses import dataclass
@@ -31,9 +32,14 @@ class IntegrationResult:
     validated: bool
     amount_drops: int
     intent_id: str
+    sender_address: str
+    destination_address: str
 
 
 def _integration_result_from_tx_result(result, intent_id):
+    tx_json = result.get("tx_json") or {}
+    if tx_json.get("TransactionType") != "Payment":
+        raise ValueError(f"Expected a Payment transaction, got {tx_json.get('TransactionType')!r}.")
     # delivered_amount (not tx_json.Amount) is the XRPL-documented way to read
     # what actually arrived, since a partial payment can deliver less than requested.
     delivered = (result.get("meta") or {}).get("delivered_amount")
@@ -47,6 +53,8 @@ def _integration_result_from_tx_result(result, intent_id):
         validated=bool(result.get("validated")),
         amount_drops=int(delivered),
         intent_id=intent_id,
+        sender_address=tx_json.get("Account"),
+        destination_address=tx_json.get("Destination"),
     )
 
 
@@ -76,9 +84,9 @@ def fetch_validated_transaction(client, tx_hash, intent_id):
 class ProcessedDeposits:
     """Idempotent record of which validated transactions have already been credited.
 
-    A real reconciliation step needs one of these (or a persisted equivalent, e.g.
-    a unique tx_hash column) per pool so that observing the same validated
-    transaction more than once cannot credit a deposit twice.
+    The Flask app's persisted equivalent is the UNIQUE tx_hash column on
+    ledger_receipts (migration 003); use this in-memory version for scripts or
+    polling loops that check a transaction more than once before calling the API.
     """
 
     def __init__(self):
