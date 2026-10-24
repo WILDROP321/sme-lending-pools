@@ -1,0 +1,25 @@
+# Local secrets and environment configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# JavaScript / TypeScript
+node_modules/
+dist/
+build/
+.next/
+coverage/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Local machine files
+.DS_Store
+Thumbs.db
+*.log
