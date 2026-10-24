@@ -1,27 +1,55 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SME Lending Pools · Developer starter</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  </head>
-  <body>
-    <main>
-      <p class="eyebrow">HACKATHON · FLASK + XRPL DEVNET</p>
-      <h1>Tomorrow’s payments.<br>Today’s possibilities.</h1>
-      <p>We’re building lending pools where investors can choose a pool and help small businesses access cash against future incoming payments.</p>
-      <section>
-        <h2>The development server is ready.</h2>
-        <p>This starter stores draft pools and funding requests locally. Investor deposits, funding, and repayments are the next milestones.</p>
-        <nav aria-label="Developer endpoints">
-          <a href="/api/health">Server health →</a>
-          <a href="/api/pools">Local pools →</a>
-          <a href="/api/funding-requests">Funding requests →</a>
-          <a href="/api/xrpl/status">Check XRPL Devnet →</a>
-        </nav>
-      </section>
-      <footer>Local prototype · No real funds · Arya, Gabriel, Benjamin &amp; Matias</footer>
-    </main>
-  </body>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SME Lending Pools · Local demo</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script defer src="{{ url_for('static', filename='app.js') }}"></script>
+</head>
+<body>
+<main>
+  <header><a class="brand" href="/">SME / Lending Pools</a><span class="badge">Local demo · No real funds</span></header>
+  <p class="eyebrow">WORKING CAPITAL, WORKING TOGETHER</p>
+  <h1>Tomorrow’s payments.<br>Today’s possibilities.</h1>
+  <p class="intro">Explore a pool and request an advance against a future incoming payment. All records are stored locally for this hackathon prototype.</p>
+  <noscript><p>This demo needs JavaScript to browse pools and submit requests.</p></noscript>
+  <div class="workspace">
+    <section aria-labelledby="pools-title">
+      <div class="section-heading"><h2 id="pools-title">01 / Explore pools</h2><button id="refresh-pools" type="button">Refresh</button></div>
+      <p id="pools-message" role="status">Loading pools…</p>
+      <div id="pools" class="pool-list" aria-label="Available pools"></div>
+      <div id="pool-detail" aria-live="polite"><p>Select a pool to see its details.</p></div>
+      <aside><strong>Investor contributions are coming next.</strong><p>Selecting a pool does not create a contribution or confirm a deposit. Contributions will remain pending until validated ledger reconciliation is available.</p></aside>
+    </section>
+    <section aria-labelledby="request-title">
+      <h2 id="request-title">02 / Request funding</h2>
+      <p>Submit synthetic business details for review. Submission does not approve or transfer funds.</p>
+      <form id="funding-form">
+        <fieldset id="request-fields" disabled>
+          <label for="pool-id">Selected pool</label>
+          <select id="pool-id" required><option value="">Choose a pool</option></select>
+          <label for="business-name">Business name</label>
+          <input id="business-name" maxlength="160" autocomplete="organization" required placeholder="e.g. Demo Bakery">
+          <label for="amount">Requested amount (XRP)</label>
+          <input id="amount" type="text" inputmode="decimal" pattern="[0-9]+([.][0-9]{1,6})?" required aria-describedby="amount-help" placeholder="25.000000">
+          <small id="amount-help">Positive amount, up to 6 decimal places. Stored as integer drops.</small>
+          <label for="payment-date">Expected incoming payment date</label>
+          <input id="payment-date" type="date" required aria-describedby="date-help">
+          <small id="date-help">Choose a future date. The server validates the date.</small>
+          <button class="primary" id="submit-request" type="submit">Submit funding request →</button>
+        </fieldset>
+        <p id="form-message" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+  </div>
+  <section aria-labelledby="requests-title">
+    <div class="section-heading"><h2 id="requests-title">03 / Submitted requests</h2><button id="refresh-requests" type="button">Refresh</button></div>
+    <p>Shared local demo records. “Submitted” means awaiting review.</p>
+    <p id="requests-message" role="status">Loading requests…</p>
+    <div id="requests" class="request-list"></div>
+  </section>
+  <footer>Local prototype · XRP Ledger Devnet · Arya, Gabriel, Benjamin &amp; Matias</footer>
+</main>
+</body>
 </html>
