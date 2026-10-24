@@ -1,3 +1,4 @@
+-- Adopt the unversioned starter schema without deleting existing records.
 CREATE TABLE IF NOT EXISTS pools (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,

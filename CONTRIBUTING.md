@@ -12,6 +12,8 @@ git switch -c feature/your-task
 
 Follow the Python environment and database setup in [README.md](README.md). The three workstreams and file ownership boundaries are in [docs/TEAM_TASKS.md](docs/TEAM_TASKS.md). Run `python -m pytest -q` before opening a pull request; GitHub Actions runs the same tests.
 
+After pulling changes that include migrations, back up your local SQLite database and run `python -m flask migrate-db`. Add numbered SQL migrations for schema changes; never edit an applied migration. See [docs/DATABASE.md](docs/DATABASE.md).
+
 ## Daily workflow
 
 Start each task from an up-to-date `main` with a clean working tree:

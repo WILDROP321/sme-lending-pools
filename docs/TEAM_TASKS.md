@@ -4,11 +4,11 @@ Initial owners: Arya, Gabriel, and Benjamin. Matias remains a team member and ca
 
 | Owner | Workstream | Files to start with | First deliverable |
 | --- | --- | --- | --- |
-| Arya (`WILDROP321`) | Backend and business lifecycle — [issue #1](https://github.com/WILDROP321/sme-lending-pools/issues/1) | `services/api/lending_pool/routes.py`, `db.py`, `schema.sql`, `tests/` | Investor records, contribution intents, and an explicit review/funding state model |
+| Arya (`WILDROP321`) | Backend and business lifecycle — [issue #1](https://github.com/WILDROP321/sme-lending-pools/issues/1) | `services/api/lending_pool/routes.py`, `db.py`, `migrations/`, `reviews.py`, `tests/` | Investor records, contribution intents, and an explicit review/funding state model |
 | Gabriel (`gableguen`) | Investor and SME experience — [issue #2](https://github.com/WILDROP321/sme-lending-pools/issues/2) | `services/api/lending_pool/templates/`, `static/` | Browse pools, select a pool, and submit an SME funding request using the existing API |
 | Benjamin (`Benjileguen`) | XRPL Devnet integration — [issue #3](https://github.com/WILDROP321/sme-lending-pools/issues/3) | `services/api/lending_pool/ledger.py`, new ledger tests | Document the on-ledger pool model, create Devnet test accounts with a local script, and verify one validated test transaction |
 
-Issues #1 and #2 are assigned in GitHub. Benjamin is named as the owner of #3; formal assignment is pending acceptance of his collaborator invitation.
+Issues #1 and #2 are assigned in GitHub. Benjamin is named as the owner of #3 and now has write access to the repository.
 
 ## Shared rules
 
@@ -22,6 +22,8 @@ Issues #1 and #2 are assigned in GitHub. Benjamin is named as the owner of #3; f
 
 1. **Local skeleton (implemented):** Flask, local draft pools, SME requests, and read-only ledger status.
 2. **Investor selection:** build the UI and investor/contribution intent records. An intent is not a confirmed deposit.
+
+   Backend API ready for UI integration: `POST /api/investors`, `POST /api/contribution-intents`, and intent filtering by investor/pool. Local review endpoints and audit history are also available. See [API.md](API.md) for payloads and [DATABASE.md](DATABASE.md) before upgrading a local database.
 3. **Devnet deposits:** choose and document the ledger mechanism, verify network/account settings, then attach validated transaction hashes to intents. Make reconciliation idempotent so repeated observations cannot credit twice.
 4. **SME funding:** add review decisions and enforce available pool balance before disbursement. Record validated ledger results before marking requests funded.
 5. **Repayment:** reconcile receipts and update balances, then build the demo story.

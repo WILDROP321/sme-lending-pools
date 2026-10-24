@@ -45,7 +45,7 @@ For the demo, use synthetic business and transaction data. Real payment integrat
 
 Python 3.13, Flask, SQLite, and `xrpl-py`, configured for **XRP Ledger (XRPL) Devnet**.
 
-Implemented: a Flask homepage, health endpoint, local draft pool creation/listing, SME funding request creation/listing, persistent local data, demo seeding, and a read-only Devnet status check. Investor accounts, deposits, approval, disbursement, and repayment are upcoming work. No ledger pool or wallet is created by the starter.
+Implemented: a Flask homepage, local pools, demo investor records, pending contribution intents, SME funding requests, review decisions with history, versioned SQLite migrations, demo seeding, and a read-only Devnet status check. Deposits, wallet ownership, disbursement, and repayment are upcoming work. No ledger pool or wallet is created by the starter; local approval sends no funds.
 
 ## Run locally
 
@@ -69,7 +69,9 @@ Open **http://127.0.0.1:5001**. Port 5001 avoids the common macOS port 5000 conf
 
 If you are working in the original project folder where the environment is already prepared, start with `source .venv/bin/activate` and `python -m flask run --debug`.
 
-`init-db` creates missing tables without deleting data. `seed-demo` adds one example pool when no pools exist. SQLite data lives under `services/api/instance/` and is ignored by Git. Each teammate has independent demo data. Future schema changes will need migrations; `init-db` does not alter existing tables.
+`init-db` applies versioned migrations without deleting existing records. `seed-demo` adds a demo pool and investor when their tables are empty. SQLite data lives under `services/api/instance/` and is ignored by Git. Each teammate has independent demo data.
+
+**Already using the original starter?** Back up your database, then run `python -m flask migrate-db` before starting the updated server. See [docs/DATABASE.md](docs/DATABASE.md) for backup and migration instructions. Pending migrations run together in a transaction and roll back if they fail.
 
 The app works locally without XRPL access. Only `/api/xrpl/status` requires an internet connection. Keep `XRPL_JSON_RPC_URL` on Devnet. No credentials or wallet seed are needed for this starter.
 
@@ -84,6 +86,14 @@ curl http://127.0.0.1:5001/api/xrpl/status
 ```
 
 Tests use temporary databases and mock ledger responses. GitHub Actions runs them on pushes and pull requests.
+
+With Flask running, try the investor and review flow:
+
+```sh
+python scripts/demo_backend.py
+```
+
+Each run creates demo records, including a pending contribution intent and a locally approved request with review history. No funds move. The endpoint contracts and individual examples are in [docs/API.md](docs/API.md).
 
 ## Three workstreams
 
@@ -103,7 +113,8 @@ services/api/
   lending_pool/
     __init__.py          Application factory and configuration
     routes.py            JSON API — backend workstream
-    db.py, schema.sql    Local persistence — backend workstream
+    db.py, migrations/   Versioned local persistence — backend workstream
+    reviews.py           Funding request review state rules
     ledger.py            XRPL boundary — ledger workstream
     templates/, static/  Web screens — UI workstream
   instance/              Ignored local SQLite data
