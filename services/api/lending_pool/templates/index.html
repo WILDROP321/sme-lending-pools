@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SME Lending Pools · Developer starter</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">HACKATHON · FLASK + XRPL DEVNET</p>
+      <h1>Tomorrow’s payments.<br>Today’s possibilities.</h1>
+      <p>We’re building lending pools where investors can choose a pool and help small businesses access cash against future incoming payments.</p>
+      <section>
+        <h2>The development server is ready.</h2>
+        <p>This starter stores draft pools and funding requests locally. Investor deposits, funding, and repayments are the next milestones.</p>
+        <nav aria-label="Developer endpoints">
+          <a href="/api/health">Server health →</a>
+          <a href="/api/pools">Local pools →</a>
+          <a href="/api/funding-requests">Funding requests →</a>
+          <a href="/api/xrpl/status">Check XRPL Devnet →</a>
+        </nav>
+      </section>
+      <footer>Local prototype · No real funds · Arya, Gabriel, Benjamin &amp; Matias</footer>
+    </main>
+  </body>
+</html>

@@ -41,35 +41,82 @@ This is a hackathon prototype. The workflows below describe what we intend to ex
 
 For the demo, use synthetic business and transaction data. Real payment integrations, custody, underwriting, pricing, and production lending requirements remain future design decisions.
 
+## Stack and current status
+
+Python 3.13, Flask, SQLite, and `xrpl-py`, configured for **XRP Ledger (XRPL) Devnet**.
+
+Implemented: a Flask homepage, health endpoint, local draft pool creation/listing, SME funding request creation/listing, persistent local data, demo seeding, and a read-only Devnet status check. Investor accounts, deposits, approval, disbursement, and repayment are upcoming work. No ledger pool or wallet is created by the starter.
+
+## Run locally
+
+Each teammate should clone the repository and create their own environment:
+
+```sh
+git clone https://github.com/WILDROP321/sme-lending-pools.git
+cd sme-lending-pools
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements-dev.txt
+cp .env.example .env
+python -m flask init-db
+python -m flask seed-demo
+python -m flask run --debug
+```
+
+Use Python 3.13. On Windows, activate with `.venv\Scripts\activate` and copy the environment file with `copy .env.example .env`.
+
+Open **http://127.0.0.1:5001**. Port 5001 avoids the common macOS port 5000 conflict. The development server binds to your own machine; this unauthenticated prototype is for local development.
+
+If you are working in the original project folder where the environment is already prepared, start with `source .venv/bin/activate` and `python -m flask run --debug`.
+
+`init-db` creates missing tables without deleting data. `seed-demo` adds one example pool when no pools exist. SQLite data lives under `services/api/instance/` and is ignored by Git. Each teammate has independent demo data. Future schema changes will need migrations; `init-db` does not alter existing tables.
+
+The app works locally without XRPL access. Only `/api/xrpl/status` requires an internet connection. Keep `XRPL_JSON_RPC_URL` on Devnet. No credentials or wallet seed are needed for this starter.
+
+## Check the setup
+
+```sh
+python -m pytest -q
+python -m pip check
+curl http://127.0.0.1:5001/api/health
+curl http://127.0.0.1:5001/api/pools
+curl http://127.0.0.1:5001/api/xrpl/status
+```
+
+Tests use temporary databases and mock ledger responses. GitHub Actions runs them on pushes and pull requests.
+
+## Three workstreams
+
+| Owner | Focus | First task |
+| --- | --- | --- |
+| Arya | Flask backend and data | Investor records, contribution intents, and request lifecycle |
+| Gabriel | Investor and SME UI | Pool browsing/selection and funding request form |
+| Benjamin | XRPL Devnet | Ledger pool design, test accounts, and validated transaction proof |
+
+Matias remains a team member and can pair on a stream or help test the demo. Full ownership boundaries and milestones are in [docs/TEAM_TASKS.md](docs/TEAM_TASKS.md).
+
 ## Project structure
 
 ```text
-apps/web/       User interface and dashboards
-services/api/   Backend endpoints and business logic
-packages/shared/ Shared types, schemas, and utilities
-docs/           Product notes, API agreements, and demo instructions
+services/api/
+  app.py                 Flask CLI entry point
+  lending_pool/
+    __init__.py          Application factory and configuration
+    routes.py            JSON API — backend workstream
+    db.py, schema.sql    Local persistence — backend workstream
+    ledger.py            XRPL boundary — ledger workstream
+    templates/, static/  Web screens — UI workstream
+  instance/              Ignored local SQLite data
+apps/web/                Reserved for a separate frontend if needed later
+packages/shared/         Reserved for cross-service types if needed later
+tests/                   Offline API and persistence tests
+docs/                    API contract and team task plan
 ```
-
-The folders are starting points. We have not selected a framework or added runnable application code yet. Add installation, environment variable, and development commands here when the stack is chosen.
 
 ## Building together
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before your first change.
+Read [CONTRIBUTING.md](CONTRIBUTING.md). Pick your assigned GitHub issue, create a feature branch, and open a pull request into `main`. Ask another teammate to review. Agree on changes to shared endpoint fields in [docs/API.md](docs/API.md) before integrating them.
 
-1. Claim a task in GitHub Issues and agree on which files or module you own.
-2. Create a short-lived branch such as `feature/business-dashboard` or `fix/pool-balance`.
-3. Build your part and open a pull request into `main`.
-4. Ask a teammate to review and run the relevant checks before merging.
-5. Pull the latest `main` before starting the next task.
+The local draft pool is an application record, not an XRPL AMM or native lending object. The XRPL workstream will choose the appropriate ledger mechanism before adding deposits or payments. Use synthetic business data and Devnet test funds throughout the hackathon.
 
-Use issues for tasks and blockers, pull requests for code discussions, and `docs/` for decisions the whole team needs. Agree on shared API shapes before connecting the frontend and backend.
-
-## Initial task ideas
-
-- [ ] Agree on a team name, technology stack, and demo story.
-- [ ] Define funding request, pool, advance, and repayment data models.
-- [ ] Build the business request form and dashboard.
-- [ ] Build the pool dashboard and request review flow.
-- [ ] Implement simulated funding and repayment logic.
-- [ ] Add demo data and document how to run the project.
-- [ ] Test the end-to-end demo and rehearse the presentation.
+References: [Flask application factories](https://flask.palletsprojects.com/en/stable/patterns/appfactories/), [XRPL Python quickstart](https://xrpl.org/docs/tutorials/get-started/get-started-python), [XRPL Devnet features](https://xrpl.org/docs/tutorials/advanced-developer-topics/protocol-development/testing-devnet-features).

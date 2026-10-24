@@ -10,7 +10,7 @@ cd <repository-folder>
 git switch -c feature/your-task
 ```
 
-Application setup commands will be added to the README when the team selects its stack.
+Follow the Python environment and database setup in [README.md](README.md). The three workstreams and file ownership boundaries are in [docs/TEAM_TASKS.md](docs/TEAM_TASKS.md). Run `python -m pytest -q` before opening a pull request; GitHub Actions runs the same tests.
 
 ## Daily workflow
 

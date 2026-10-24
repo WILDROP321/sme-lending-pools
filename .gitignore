@@ -18,6 +18,9 @@ __pycache__/
 *.py[cod]
 .venv/
 .pytest_cache/
+instance/
+*.sqlite
+*.sqlite3
 
 # Local machine files
 .DS_Store
