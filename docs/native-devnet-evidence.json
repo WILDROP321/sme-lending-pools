@@ -1,0 +1,185 @@
+{
+  "network": "devnet",
+  "network_id": 2,
+  "asset_kind": "mock",
+  "currency": "4D4F434B524C5553440000000000000000000000",
+  "issuer": "rD3UJ4eRRbpU3HZKYxKwKAugRHE5QEXgdu",
+  "pools": {
+    "core": {
+      "vault_id": "1AC00578CCA6B5917C3225DB99EC95068E361CF5ABE4ECBD806B4AA8E6592ED5",
+      "subscription_date": 846296201,
+      "redemption_date": 846901001,
+      "broker_id": "895A4F676359ED95F8CAC149E6529A62045B602206D23D6D85014F6D60AFEA97",
+      "seeded": true
+    },
+    "balanced": {
+      "vault_id": "5CC055DBD6D3B772AD9A67BD701E44F4452062F63995E26D785846AB65A5336A",
+      "subscription_date": 846209901,
+      "redemption_date": 846814701,
+      "broker_id": "2B5A0D6D12D0929ABABA8E9FD7970553A7E92B38C33895E521EA5B12B43A80D7",
+      "seeded": true
+    },
+    "opportunity": {
+      "vault_id": "420F19E5D5776885A760F4DCA8A9DCCB621E414C12F459A415288FE2186DDE17",
+      "subscription_date": 846382622,
+      "redemption_date": 846987422,
+      "broker_id": "BB971F4602B3F92C7BFCA0B40BD1DEE89775F1313F113E51FD0FCDDAC6DE9AC6",
+      "seeded": true
+    }
+  },
+  "transactions": [
+    {
+      "type": "AccountSet",
+      "hash": "F28001E2B60D6CED2B02DF1B9FC4D9CB68082C92CD04A42EA694FD609EEA7643",
+      "ledger": 6393755,
+      "result": "tesSUCCESS",
+      "explorer": "https://devnet.xrpl.org/transactions/F28001E2B60D6CED2B02DF1B9FC4D9CB68082C92CD04A42EA694FD609EEA7643"
+    },
+    {
+      "type": "TrustSet",
+      "hash": "22A181261E8B6B6F15BF9B62AB49C7919D06AC38A076ECA3DFDE67828B3DE8C2",
+      "ledger": 6393756,
+      "result": "tesSUCCESS",
+      "explorer": "https://devnet.xrpl.org/transactions/22A181261E8B6B6F15BF9B62AB49C7919D06AC38A076ECA3DFDE67828B3DE8C2"
+    },
+    {
+      "type": "Payment",
+      "hash": "4C1E641F29BD7B46DE780DDDE4AD49464F25A7AF4A1D9A8F0AB53024612B74D7",
+      "ledger": 6393758,
+      "result": "tesSUCCESS",
+      "explorer": "https://devnet.xrpl.org/transactions/4C1E641F29BD7B46DE780DDDE4AD49464F25A7AF4A1D9A8F0AB53024612B74D7"
+    },
+    {
+      "type": "TrustSet",
+      "hash": "AF65E3F60CFEFE640B414839ED5F0C028234D1CA2CAA98B2CE7178F690EB04FA",
+      "ledger": 6393759,
+      "result": "tesSUCCESS",
+      "explorer": "https://devnet.xrpl.org/transactions/AF65E3F60CFEFE640B414839ED5F0C028234D1CA2CAA98B2CE7178F690EB04FA"
+    },
+    {
+      "type": "Payment",
+      "hash": "D6BF203F2FC90CD84F3D42EACCEC5614CCF025DA224DD83CB989048DF530624F",
+      "ledger": 6393761,
+      "result": "tesSUCCESS",
+      "explorer": "https://devnet.xrpl.org/transactions/D6BF203F2FC90CD84F3D42EACCEC5614CCF025DA224DD83CB989048DF530624F"
+    },
+    {
+      "type": "TrustSet",
+      "hash": "7782760D2ABD0291C3EB715D17EFBE97EDCB3953C370C2EDF0A2E6B986B75B58",
+      "ledger": 6393763,
+      "result": "tesSUCCESS",
+      "explorer": "https://devnet.xrpl.org/transactions/7782760D2ABD0291C3EB715D17EFBE97EDCB3953C370C2EDF0A2E6B986B75B58"
+    },
+    {
+      "type": "Payment",
+      "hash": "40042FA61B87F782C8CD1A77B7291CE1BCBB25BDF9BDAC86C237DBFAE5C710C5",
+      "ledger": 6393764,
+      "result": "tesSUCCESS",
+      "explorer": "https://devnet.xrpl.org/transactions/40042FA61B87F782C8CD1A77B7291CE1BCBB25BDF9BDAC86C237DBFAE5C710C5"
+    },
+    {
+      "type": "VaultCreate",
+      "hash": "F2D7F24CD385F760F04B0253655C2E2A591B669C58FFCC6117C9C05E9A46F26D",
+      "ledger": 6393766,
+      "result": "tesSUCCESS",
+      "explorer": "https://devnet.xrpl.org/transactions/F2D7F24CD385F760F04B0253655C2E2A591B669C58FFCC6117C9C05E9A46F26D"
+    },
+    {
+      "type": "LoanBrokerSet",
+      "hash": "9BBE6B7EAA447A39F591E838B0FEABF984A196A46C31ADD8B83BA34B00EC5579",
+      "ledger": 6393767,
+      "result": "tesSUCCESS",
+      "explorer": "https://devnet.xrpl.org/transactions/9BBE6B7EAA447A39F591E838B0FEABF984A196A46C31ADD8B83BA34B00EC5579"
+    },
+    {
+      "type": "VaultDeposit",
+      "hash": "17A1DC0C68DF4A8E8A667F20418853FA71769C555913FC701E82E573597A9420",
+      "ledger": 6393768,
+      "result": "tesSUCCESS",
+      "explorer": "https://devnet.xrpl.org/transactions/17A1DC0C68DF4A8E8A667F20418853FA71769C555913FC701E82E573597A9420"
+    },
+    {
+      "type": "VaultCreate",
+      "hash": "DAA9532A2192307A552E4888D86DAB4006F78C510B70E20E99A62C4CB316D4A9",
+      "ledger": 6393769,
+      "result": "tesSUCCESS",
+      "explorer": "https://devnet.xrpl.org/transactions/DAA9532A2192307A552E4888D86DAB4006F78C510B70E20E99A62C4CB316D4A9"
+    },
+    {
+      "type": "LoanBrokerSet",
+      "hash": "5433E98BA05660FEF5A6F888875BB522E2940A0BF02A2539602B298C6011B5EA",
+      "ledger": 6393770,
+      "result": "tesSUCCESS",
+      "explorer": "https://devnet.xrpl.org/transactions/5433E98BA05660FEF5A6F888875BB522E2940A0BF02A2539602B298C6011B5EA"
+    },
+    {
+      "type": "VaultDeposit",
+      "hash": "C73313C25C00CF1EA0E2877D08C0FAE34C08112D4B62DA370D990FD49C14C093",
+      "ledger": 6393772,
+      "result": "tesSUCCESS",
+      "explorer": "https://devnet.xrpl.org/transactions/C73313C25C00CF1EA0E2877D08C0FAE34C08112D4B62DA370D990FD49C14C093"
+    },
+    {
+      "type": "VaultCreate",
+      "hash": "18C0E0FB3904C562FA792D19FAB1609430B46903380BB7EAE0ECCB018291AF5F",
+      "ledger": 6393773,
+      "result": "tesSUCCESS",
+      "explorer": "https://devnet.xrpl.org/transactions/18C0E0FB3904C562FA792D19FAB1609430B46903380BB7EAE0ECCB018291AF5F"
+    },
+    {
+      "type": "LoanBrokerSet",
+      "hash": "10A85F6AF0F5D8278EBBC5078A5D1484B45F22E8711AA9A926BA1DF397D1C0E7",
+      "ledger": 6393774,
+      "result": "tesSUCCESS",
+      "explorer": "https://devnet.xrpl.org/transactions/10A85F6AF0F5D8278EBBC5078A5D1484B45F22E8711AA9A926BA1DF397D1C0E7"
+    },
+    {
+      "type": "VaultDeposit",
+      "hash": "20FAC18602641F8017DA11941EE436AC994B58E8E449143478CA1790CCBD201E",
+      "ledger": 6393776,
+      "result": "tesSUCCESS",
+      "explorer": "https://devnet.xrpl.org/transactions/20FAC18602641F8017DA11941EE436AC994B58E8E449143478CA1790CCBD201E"
+    }
+  ],
+  "issuer_ready": true,
+  "broker_address": "rB7cUSZv1BeL1EmiD534vE2iJP6u4fiQHh",
+  "test_investor": "rNiA9r3HkG8yaLzeLC8fmDHAMmnYc8rpwW",
+  "test_borrower": "rHXGEb5eKAu3Dm5bqVgR6EghvxbMVJnJM7",
+  "flask_verification": [
+    {
+      "action": "deposit",
+      "tx_hash": "6440A46E8D66A86AE1233CDFB18394CE114C1360D8734BC63AA256B68A06AB6E",
+      "status": "confirmed",
+      "result_code": "tesSUCCESS",
+      "ledger_index": 6393786
+    },
+    {
+      "action": "withdraw",
+      "tx_hash": "6D41F7C403EE842FFD52C9059AD345941CD2051979E0EECEB28EB115BACE62D0",
+      "status": "confirmed",
+      "result_code": "tesSUCCESS",
+      "ledger_index": 6393789
+    },
+    {
+      "action": "borrow",
+      "tx_hash": "6699F8D4A1EA0EEDA23517B81AA5245901704BF4B3AA414A469A9AE0699BD733",
+      "status": "confirmed",
+      "result_code": "tesSUCCESS",
+      "ledger_index": 6393801
+    },
+    {
+      "action": "repay",
+      "tx_hash": "5D5BFD29D20F250A1CB268455E610DCB17D21B01E0FD569555C76B5E074421E5",
+      "status": "failed",
+      "result_code": "tecKILLED",
+      "ledger_index": 6393805
+    },
+    {
+      "action": "repay",
+      "tx_hash": "7D26022BF2811678254D3F07F65C779E78A6688EF18017108B97D4851CB2FDD5",
+      "status": "confirmed",
+      "result_code": "tesSUCCESS",
+      "ledger_index": 6393824
+    }
+  ]
+}

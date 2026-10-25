@@ -23,23 +23,17 @@ In our proposed experience, a business submits an eligible future payment for re
 
 This is a hackathon prototype. The workflows below describe what we intend to explore; they are not claims of implemented features or a live lending service.
 
-## RLUSD demo home
+## Native Devnet lending
 
-The home page now opens in an explicitly labelled, browser-local RLUSD demo. Start with 10,000 mock RLUSD, browse/search/sort pools, and simulate deposits, withdrawals, borrowing and repayments. All capital and APYs are fictional; interest does not accrue. Demo financial actions make no API calls and never sign or submit blockchain transactions. Reset the demo from Your positions.
+The app now uses real XRPL Devnet vaults, loans and repayments. Only the asset is mock: **MOCKRLUSD**, an issued Devnet token with no monetary value and no association with official Ripple RLUSD. Local balance simulation has been removed.
 
-There is one app. Connect GemWallet in the header to verify ownership with a signed challenge. All investment and funding actions remain simulated; mock balances never become wallet funds. This mock asset is not official Ripple RLUSD and has no monetary value.
+Three native closed-ended vaults and LoanBroker objects were deployed. Real Flask API flows validated deposits, withdrawals, two-party LoanSet origination and regular LoanPay repayment. The Devnet explorer confirms the native loan. See [transaction evidence](docs/native-devnet-evidence.json) and [workflow/setup](docs/LENDING_INTEGRATION.md).
 
-## Current ledger implementation
-
-The Flask UI reads validated XRPL data, authenticates wallet ownership through GemWallet signatures, and prepares RLUSD VaultDeposit, VaultWithdraw, TrustSet and LoanPay transactions for wallet signing. Only validated `tesSUCCESS` results are confirmed. Historical simulated balances are never imported into live positions.
-
-**Default: standard Devnet, explicitly selected by Gabriel. Live RLUSD lending is blocked.** On 24 October 2026, standard Devnet supported native lending but no official RLUSD issuer could be verified there. Ripple documents an issuer on Testnet, where the native lending amendments were disabled. The dedicated Lending Devnet hostname was unavailable. No live deposit, loan or repayment has been submitted by this integration.
-
-Pool detail pages follow the supplied dashboard reference. Missing balances and historical rates remain unavailable rather than displaying fictional data. Investor/borrower workflow and implementation limits are available in the app's **Workflow** screen and [integration documentation](docs/LENDING_INTEGRATION.md).
+GemWallet authenticates the user and signs user transactions. Native transaction signing through the actual extension still needs user-wallet testing; automated live tests used freshly generated test-wallet keys. Invoices and underwriting remain off-chain. The test broker has a fixed test-credit policy, not real invoice approval.
 
 ## Run locally
 
-Use Python 3.13:
+Use Python 3.13 and Node >=20.19:
 
 ```sh
 python3 -m venv .venv
@@ -47,23 +41,22 @@ source .venv/bin/activate
 python -m pip install -r requirements-dev.txt
 cp .env.example .env
 python -m flask init-db
+npm ci --prefix scripts/native --ignore-scripts
+node scripts/native/deploy.mjs
 python -m flask run --debug
 ```
 
-Open http://127.0.0.1:5001. Existing users should back up SQLite and run `python -m flask migrate-db`. See [database instructions](docs/DATABASE.md). No seed data or private keys are needed. Keep the prototype bound to localhost and use synthetic invoice documents.
+The deployment script makes real Devnet transactions using new faucet-funded test accounts. It saves keys with restricted permissions under ignored `services/api/instance/`; never commit or share that file. The public manifest is loaded by Flask on startup. Restart Flask after deployment. Set `FLOW_NODE` to a compatible Node executable if necessary.
 
-Install GemWallet and select the exact configured network. The backend checks the network ID; the frontend checks the wallet WebSocket endpoint. Configure a verified official issuer and real RLUSD Vault IDs only after these exist on the chosen network. See `.env.example` and the integration guide. Never substitute a self-issued token labelled RLUSD.
-
-## Validation
+Open http://127.0.0.1:5001. The current preview uses port 5002. Connect GemWallet on standard Devnet, establish the MOCKRLUSD trust line in Your positions, then request test tokens. Deposits and withdrawals depend on each vault's subscription/redemption schedule. Get funded prepares native test loans from vaults in their investment phase.
 
 ```sh
 python -m pytest -q
-python scripts/check_lending_network.py --account YOUR_PUBLIC_ADDRESS
+# Optional: submits REAL test transactions, using deployment test accounts:
+python scripts/prove_native_lending.py
 ```
 
-Unit tests mock RPC responses and exercise real local signature cryptography; they do not prove live lending. The diagnostic makes read-only network requests and exits 2 when prerequisites are missing. Browser checks cover pool navigation, mobile overflow, unavailable balances, missing wallet handling, workflow and invoice form rendering.
-
-Historical simulation APIs are disabled by default. `ENABLE_SIMULATION=true` enables legacy local demonstration endpoints for development only; the current UI remains the ledger UI. Historical contracts are retained in `docs/API.md` and `docs/MARKET.md`.
+135 offline tests pass. Live proof results and the rejected early-full repayment are documented separately; offline tests are not presented as blockchain evidence.
 
 ## Three workstreams
 

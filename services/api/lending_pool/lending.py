@@ -7,6 +7,9 @@ import json
 import re
 import secrets
 import time
+import subprocess
+import os
+from pathlib import Path
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlparse
 
@@ -66,6 +69,7 @@ def config():
         profile['explorer'] = current_app.config.get('LENDING_EXPLORER_TX_URL') or profile['explorer']
     else:
         profile['issuer_source'] = 'https://docs.ripple.com/products/stablecoin/developer-resources/rlusd-on-the-xrpl'
+    profile['asset_kind'] = 'mock' if current_app.config.get('LENDING_MOCK_ASSET') else 'official'
     return profile
 
 
@@ -91,6 +95,10 @@ def validated(method, **params):
 
 def asset():
     profile = config()
+    if current_app.config.get('LENDING_MOCK_ASSET'):
+        if profile['key'] != 'devnet' or not addresscodec.is_valid_classic_address(profile['issuer'] or ''):
+            raise LedgerError('Mock token is restricted to Devnet and needs a valid issuer.')
+        return {'currency': 'MOCKRLUSD'.encode().hex().upper().ljust(40, '0'), 'issuer': profile['issuer']}
     if not profile['issuer'] or not addresscodec.is_valid_classic_address(profile['issuer']):
         raise LedgerError('No verified official RLUSD issuer is configured on this network.', 'rlusd_unavailable')
     if not profile.get('issuer_source'):
@@ -298,7 +306,7 @@ def wallet_state():
         result['ledger_index'] = info['ledger_index']
         issue = asset()
         lines = paged('account_lines', 'lines', account=account, peer=issue['issuer'])
-        line = next((line for line in lines if line['currency'] == CURRENCY and line['account'] == issue['issuer']), None)
+        line = next((line for line in lines if line['currency'] == issue['currency'] and line['account'] == issue['issuer']), None)
         result.update(rlusd_balance=line['balance'] if line else '0', trustline=line)
         objects = paged('account_objects', 'account_objects', account=account)
         result['shares'] = [node for node in objects if node.get('LedgerEntryType') == 'MPToken']
@@ -326,9 +334,9 @@ def public_intent(row):
 def prepare():
     account, data = wallet(), body()
     action = data.get('action')
-    if action not in ('trustline', 'deposit', 'withdraw', 'repay'):
+    if action not in ('trustline', 'deposit', 'withdraw', 'repay', 'borrow'):
         abort(400, description='Supported actions: trustline, deposit, withdraw, repay. Loan origination needs a broker/counterparty signing flow.')
-    status = require_ready(None if action == 'trustline' else 'LendingProtocol' if action == 'repay' else 'SingleAssetVault')
+    status = require_ready(None if action == 'trustline' else 'LendingProtocol' if action in ('repay', 'borrow') else 'SingleAssetVault')
     amount = positive_amount(data.get('amount'))
     issue = asset()
     pool_id = data.get('pool')
@@ -341,6 +349,26 @@ def prepare():
                            VaultID=pool_config(pool_id), Amount=dict(issue, value=amount))
         if action == 'withdraw':
             transaction['Destination'] = account
+    elif action == 'borrow':
+        deployment = current_app.config.get('LENDING_DEPLOYMENT', {})
+        if not current_app.config.get('LENDING_MOCK_ASSET'):
+            raise LedgerError('Automatic test credit is available only for the mock Devnet token.')
+        node, _ = read_vault(pool_id)
+        broker_id = deployment.get('pools', {}).get(pool_id, {}).get('broker_id')
+        if not broker_id:
+            raise LedgerError('No native loan broker configured.')
+        broker = validated('ledger_entry', index=broker_id)['node']
+        if broker.get('VaultID') != pool_config(pool_id) or broker.get('Owner') != deployment.get('broker_address'):
+            raise LedgerError('Broker does not match the configured vault and operator.')
+        now = validated('ledger')['ledger']['close_time']
+        if not node.get('SubscriptionDate', 0) <= now < node.get('RedemptionDate', 0) - 360:
+            raise LedgerError('This closed-ended vault is not in its lending phase, or is too close to redemption.')
+        if Decimal(amount) > 1000:
+            abort(400, description='Test broker policy caps each mock-token loan at 1,000.')
+        transaction.update(TransactionType='LoanSet', LoanBrokerID=broker_id,
+                           Counterparty=deployment['broker_address'], PrincipalRequested=amount,
+                           InterestRate=0, PaymentTotal=1, PaymentInterval=300,
+                           LoanOriginationFee='0', LoanServiceFee='0', GracePeriod=60)
     else:
         loan_id = ledger_id(data.get('loan_id'))
         loan = validated('ledger_entry', index=loan_id)['node']
@@ -358,6 +386,8 @@ def prepare():
     fee = int(rpc('fee')['drops']['open_ledger_fee'])
     if fee <= 0 or fee > 1000:
         raise LedgerError('Network fee exceeds the 0.001 XRP test-transaction cap.')
+    if action == 'borrow':
+        fee *= 2
     transaction.update(Sequence=info['Sequence'], Fee=str(fee), LastLedgerSequence=status['ledger_index']+20)
     if status['network_id'] > 1024:
         transaction['NetworkID'] = status['network_id']
@@ -429,6 +459,8 @@ def submit(intent_id):
     unsigned = {key: value for key, value in decoded.items() if key not in ('SigningPubKey', 'TxnSignature')}
     if unsigned != expected or not decoded.get('TxnSignature') or not decoded.get('SigningPubKey'):
         abort(400, description='Signed transaction differs from the prepared transaction.')
+    if row['action'] == 'borrow':
+        blob = cosign_mock_loan(blob)
     tx_hash = hashlib.sha512(b'TXN\0' + bytes.fromhex(blob)).hexdigest()[:64].upper()
     if row['tx_hash'] and row['tx_hash'] != tx_hash:
         abort(409, description='This intent already has a different signed transaction.')
@@ -461,3 +493,34 @@ def intent_status(intent_id):
 def intents():
     rows = get_db().execute('SELECT * FROM ledger_intents WHERE account=? AND network=? ORDER BY created_at DESC', (wallet(), config()['key']))
     return jsonify(intents=[public_intent(row) for row in rows])
+
+
+def cosign_mock_loan(blob):
+    """Only a prepared, unchanged Devnet test loan reaches this signing boundary."""
+    if not current_app.config.get('LENDING_MOCK_ASSET') or config()['key'] != 'devnet':
+        raise LedgerError('Test broker signing is restricted to Devnet mock assets.')
+    script = Path(__file__).resolve().parents[3] / 'scripts/native/cosign.mjs'
+    node = os.getenv('FLOW_NODE', 'node')
+    try:
+        result = subprocess.run([node, str(script)], input=blob, text=True, capture_output=True, timeout=15, check=True)
+        signed = result.stdout.strip()
+        if not re.fullmatch('[A-Fa-f0-9]+', signed):
+            raise ValueError('Invalid signing output')
+        return signed
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        raise LedgerError('Native test broker signer unavailable. Nothing was submitted.') from error
+
+
+@lending.post('/mock-tokens')
+def mock_tokens():
+    account = wallet()
+    if not current_app.config.get('LENDING_MOCK_ASSET') or config()['key'] != 'devnet':
+        abort(403, description='Test-token faucet is Devnet-only.')
+    require_ready()
+    script = Path(__file__).resolve().parents[3] / 'scripts/native/faucet.mjs'
+    try:
+        result = subprocess.run([os.getenv('FLOW_NODE', 'node'), str(script)], input=account,
+                                text=True, capture_output=True, timeout=60, check=True)
+        return jsonify(json.loads(result.stdout))
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        raise LedgerError('Token faucet could not confirm issuance. Create the trust line and ensure its balance is zero. Check the issuer account on Devnet before retrying.') from error

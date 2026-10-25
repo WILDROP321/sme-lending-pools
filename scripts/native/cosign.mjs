@@ -1,0 +1,10 @@
+import * as xrpl from 'xrpl';
+import fs from 'node:fs';
+import path from 'node:path';
+const dir=path.resolve(import.meta.dirname,'../../services/api/instance');
+const saved=JSON.parse(fs.readFileSync(path.join(dir,'native-devnet-wallets.json')));
+const manifest=JSON.parse(fs.readFileSync(path.join(dir,'native-devnet.json')));
+const tx=xrpl.decode(fs.readFileSync(0,'utf8').trim());
+const w=xrpl.Wallet.fromSeed(saved.broker.seed);
+if(manifest.network_id!==2||tx.TransactionType!=='LoanSet'||tx.Counterparty!==w.address||!Object.values(manifest.pools).some(p=>p.broker_id===tx.LoanBrokerID)||Number(tx.PrincipalRequested)>1000||tx.InterestRate!==0||tx.PaymentTotal!==1||tx.PaymentInterval!==300||tx.LoanOriginationFee!=='0'||tx.LoanServiceFee!=='0'||!xrpl.verifySignature(tx))throw Error('Refusing unexpected test loan');
+process.stdout.write(xrpl.encode(xrpl.signLoanSetByCounterparty(w,tx).tx));

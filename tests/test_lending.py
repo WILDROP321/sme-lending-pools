@@ -258,3 +258,21 @@ def test_real_rpc_transport_error_does_not_fallback(live_app,monkeypatch):
         status=chain.inspect_network()
     assert calls==['https://lend.devnet.rippletest.net:51234/']
     assert not status['connected']
+
+
+def test_mock_asset_is_explicit_and_devnet_only(live_app):
+    live_app.config.update(LENDING_MOCK_ASSET=True,LENDING_RLUSD_ISSUER=Wallet.create().classic_address,LENDING_NETWORK='devnet')
+    with live_app.app_context():
+        issue=chain.asset()
+        assert bytes.fromhex(issue['currency']).rstrip(b'\0') == b'MOCKRLUSD'
+        assert chain.config()['asset_kind']=='mock'
+        live_app.config['LENDING_NETWORK']='testnet'
+        with pytest.raises(chain.LedgerError):chain.asset()
+
+
+def test_automatic_broker_rejects_official_asset(live_client,ledger):
+    login(live_client)
+    result=prepared(live_client,action='borrow')
+    assert result.status_code==503
+    assert 'mock' in result.json['error']['message']
+    assert not ledger['submitted']

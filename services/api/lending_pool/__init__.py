@@ -30,6 +30,12 @@ def create_app(test_config=None):
         SESSION_COOKIE_SAMESITE="Lax",
         SECRET_KEY=os.getenv("FLASK_SECRET_KEY"),
     )
+    manifest_path = Path(app.instance_path) / "native-devnet.json"
+    if not test_config and app.config["LENDING_NETWORK"] == "devnet" and manifest_path.exists():
+        deployment = json.loads(manifest_path.read_text())
+        app.config.update(LENDING_DEPLOYMENT=deployment, LENDING_MOCK_ASSET=True,
+                          LENDING_RLUSD_ISSUER=deployment["issuer"],
+                          LENDING_VAULTS={key: value["vault_id"] for key, value in deployment["pools"].items()})
     if test_config:
         app.config.update(test_config)
     Path(app.instance_path).mkdir(parents=True, exist_ok=True)

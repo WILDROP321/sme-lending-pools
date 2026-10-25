@@ -1,72 +1,54 @@
-# RLUSD ledger integration and workflow
+# Native Devnet lending — current implementation
 
-## Browser-local demo mode
+The browser-local RLUSD simulation has been removed. There is one app. All deposit, withdrawal, origination and repayment actions prepare native transactions and only confirm after validated `tesSUCCESS`. GemWallet owns user signatures. SQLite stores sessions, invoice records and transaction intents, not financial balances.
 
-At Gabriel’s request, the UI defaults to a labelled RLUSD mock-up. Fictional pool totals and illustrative APYs are shown in the reference-inspired Earn directory. Search, risk filtering, APY/name sorting and grid/list views work locally. A demo wallet starts at 10,000 mock RLUSD. Deposit/withdraw and borrow/repay actions use integer cents and browser localStorage, enforce available balances and a 5,000 mock RLUSD loan limit, and never call financial APIs. No interest accrues. Applications in this mode are not real underwriting requests.
+## Asset and protocol
 
-The separate ledger UI has been removed; old mode URLs open the same app. GemWallet authentication is available in the header. Mock data never changes ledger balances. This simulation is not a self-issued on-chain asset and requires no GemWallet signature.
+- Standard XRPL Devnet, NetworkID 2, rippled 3.4.1.
+- Live amendment check: SingleAssetVault, LendingProtocol and LendingProtocolV1_1 enabled.
+- Test token: **MOCKRLUSD**, currency `4D4F434B524C5553440000000000000000000000`.
+- Issuer: `rD3UJ4eRRbpU3HZKYxKwKAugRHE5QEXgdu`.
+- This is not official Ripple RLUSD. Its issuance, trust lines and balances are nevertheless on-chain.
+- Three real closed-ended Vaults, each with a native LoanBroker, initially funded with 1,000 test tokens by a newly generated investor test account.
 
-## Current evidence — 24 October 2026
+The public IDs and transaction hashes are in [native-devnet-evidence.json](native-devnet-evidence.json). Network resets can invalidate them; never silently substitute local balances.
 
-Live read-only RPC checks (approximately 01:10 UTC on 25 October) found:
+## Investor
 
-| Network | Observed result | Lending availability |
+Connect GemWallet on standard Devnet and sign the expiring ownership challenge. Your positions prepares TrustSet for the exact test issuer. After validation, refresh/reconnect and use the test-token faucet with a zero token balance; issuance is a real Payment. Select a pool and sign VaultDeposit during subscription. Native MPT shares represent the position. Withdraw through VaultWithdraw during subscription or redemption, subject to ledger rules and liquidity. XRP is used only for network fees/reserves.
+
+## Borrower
+
+Get funded prepares LoanSet with the borrower as Account and the test broker as Counterparty. Current test-credit policy is at most 1,000 MOCKRLUSD per loan, zero interest/fees, one repayment after five minutes, and a one-minute grace period. The cap is per loan, not a production credit limit. The native protocol also enforces available capital and vault dates.
+
+GemWallet signs the borrower transaction. Flask verifies exact prepared fields, then invokes the locally configured Node test-broker signer for CounterpartySignature. Only a validated LoanSet disburses principal. Your positions reads native loans and prepares LoanPay. Regular repayment was validated; the early-full attempt returned tecKILLED and was recorded as failed. Use regular repayment for this tested policy; do not assume all payment variants have passed live testing.
+
+Invoices and underwriting remain off-chain. The invoice submission route is available from Get funded for evidence, but it is not wired into production broker approval. Do not put private invoice documents on the public ledger. Test credit is not approved invoice-backed financing.
+
+## Closed-ended vault timing
+
+LendingProtocolV1_1 requires new loan brokers to use closed-ended vaults. Deposits are permitted in subscription. Loans originate in investment. Redemption opens later; dates are immutable. The UI shows subscription and redemption dates. The initial Core and Opportunity subscription windows are one/two days; Balanced was seeded and enters investment after 90 seconds. All have seven-day investment periods. This is a real lifecycle constraint, not a UI simulation.
+
+## Deployment and keys
+
+Install `npm ci --prefix scripts/native --ignore-scripts` with Node >=20.19. Run `node scripts/native/deploy.mjs` explicitly to create/fund new Devnet test accounts, configure issuer default ripple, issue test tokens, create Vault/LoanBroker objects and seed deposits. It is resumable from ignored instance files. It never uses Gabriel's private keys.
+
+`services/api/instance/native-devnet-wallets.json` contains only the generated test-wallet secrets (file mode 0600). Do not publish it. `native-devnet.json` is the public manifest automatically loaded by Flask when running normally on Devnet. Unit test overrides skip this deployment. Set FLOW_NODE if `node` does not resolve to >=20.19. Restart Flask after deployment. Keep the app bound to localhost; the test broker/faucet are development conveniences, not production custody or lending services.
+
+## Live verification, 24 October 2026 EDT
+
+These operations used real Flask challenge/signature authentication, transaction preparation, signed submission and reconciliation against Devnet; RPC was not mocked. Signing used the generated SDK test wallets, not the GemWallet extension.
+
+| Action | Result | Transaction |
 | --- | --- | --- |
-| Standard Devnet (selected default) | Network ID 2, rippled 3.4.1; SingleAssetVault, LendingProtocol and LendingProtocolV1_1 enabled | No verified official RLUSD issuer; actions blocked |
-| Dedicated Lending Devnet | Official `lend.devnet.rippletest.net` hostname did not resolve | Unavailable; no automatic fallback |
-| Testnet | Network ID 1, documented RLUSD issuer account exists | All three lending amendments disabled |
+| VaultDeposit, 10 tokens | tesSUCCESS | 6440A46E8D66A86AE1233CDFB18394CE114C1360D8734BC63AA256B68A06AB6E |
+| VaultWithdraw, 10 tokens | tesSUCCESS | 6D41F7C403EE842FFD52C9059AD345941CD2051979E0EECEB28EB115BACE62D0 |
+| LoanSet, 100 tokens | tesSUCCESS | 6699F8D4A1EA0EEDA23517B81AA5245901704BF4B3AA414A469A9AE0699BD733 |
+| Early-full LoanPay | tecKILLED | 5D5BFD29D20F250A1CB268455E610DCB17D21B01E0FD569555C76B5E074421E5 |
+| Regular LoanPay, 100 tokens | tesSUCCESS | 7D26022BF2811678254D3F07F65C779E78A6688EF18017108B97D4851CB2FDD5 |
 
-Gabriel's supplied public Devnet wallet had 17 XRP and no trust lines. XRP is needed for network fees/reserves; it is never used as lending principal. **Zero transactions were submitted. There is no new transaction hash or explorer-verified deposit, loan or repayment to report.** These findings are time-specific; rerun `scripts/check_lending_network.py` for current evidence.
+The [LoanSet explorer page](https://devnet.xrpl.org/transactions/6699F8D4A1EA0EEDA23517B81AA5245901704BF4B3AA414A469A9AE0699BD733) visibly showed success, principal 100 MOCKRLUSD, broker and five-minute terms. [Repayment](https://devnet.xrpl.org/transactions/7D26022BF2811678254D3F07F65C779E78A6688EF18017108B97D4851CB2FDD5).
 
-Sources: [official network definitions](https://github.com/XRPLF/xrpl-dev-portal/blob/master/resources/dev-tools/faucets.json), [Ripple RLUSD issuers](https://docs.ripple.com/products/stablecoin/developer-resources/rlusd-on-the-xrpl), [native lending specification](https://xls.xrpl.org/xls/XLS-0066-lending-protocol.html), [GemWallet API](https://gemwallet.app/docs/api/gemwallet-api-reference).
+135 offline tests cover the existing API plus explicit mock-asset Devnet restriction and rejection of automatic credit for official assets. GemWallet's native transaction codec remains an end-user compatibility check: unsupported signing must report failure, never substitute a Payment or local credit. Historical APY is unavailable and not fabricated.
 
-## Investor workflow
-
-1. Select the configured network in GemWallet, connect and sign the app's one-time ownership challenge. Flask verifies the signature and public-key-derived address; the session expires after one hour.
-2. Read the wallet's validated RLUSD trust-line balance and available native positions. Missing data is unavailable, not a synthetic zero.
-3. Establish the exact issuer's RLUSD trust line if necessary. This does not supply RLUSD: acquisition/faucet funding is separate.
-4. Open a pool detail page. Once mapped to a deployed RLUSD Vault, deposit with VaultDeposit, signed in GemWallet. Wait for validated success before treating it as confirmed.
-5. View native MPT vault shares. Withdraw RLUSD through VaultWithdraw to the same wallet, subject to protocol liquidity and permissions.
-
-Steps 3–5 are currently blocked on Devnet by the missing verified issuer and deployed RLUSD vaults. Displayed pool names/risk categories are product metadata, not deployed pools, live yields or underwriting guarantees.
-
-## Borrower workflow
-
-1. Connect and prove wallet ownership.
-2. Submit invoice details and a synthetic supporting file. The request and document are private to the wallet session. This is an off-chain application; the risk assessment is illustrative.
-3. Intended next step: an authorized broker reviews the invoice, verifies the debtor and agrees terms. **Production reviewer authorization, vault/broker deployment and two-party LoanSet origination/signing are not implemented.** Legacy local approval is disabled in live mode and cannot disburse money.
-4. Intended native origination uses broker/borrower co-signing; validated LoanSet creates the loan and disburses the vault asset. The app does not pretend an invoice submission does this.
-5. Existing native loans connected to configured RLUSD vaults can be read. The borrower can prepare and sign LoanPay; confirmation requires validated success. Customer invoice collection and automatic repayment are not implemented.
-
-Invoices are off-chain underwriting evidence. This integration does not create enforceable invoice collateral or automatically collect future receipts.
-
-## Configuration and signing
-
-`LENDING_NETWORK=devnet` is the explicit default. `testnet` and `lending-devnet` are opt-in profiles, never fallbacks. Standard Devnet ID 2 and Testnet ID 1 are pinned. The dedicated profile requires independently verified `LENDING_NETWORK_ID` and explorer configuration.
-
-`LENDING_RLUSD_ISSUER` and `LENDING_RLUSD_ISSUER_SOURCE` are required for either Devnet profile. Operators must verify the issuer with an official source; providing a URL is not automated issuer certification. Testnet uses Ripple's documented issuer. Currency is `524C555344000000000000000000000000000000`; issuer and currency must both match.
-
-`LENDING_VAULTS` maps product IDs to real ledger object IDs, for example `{"core":"<64-character Vault ID>"}`. No objects are provisioned automatically. Vault assets, loan borrower and loan broker/vault relationships are checked before preparing transactions.
-
-GemWallet API 3.8.0 is vendored with its license. The extension's upstream XRPL codec may not support newer native lending transaction types. Real extension signing of these types has not been validated. Unsupported signing is reported and never replaced with a Payment transaction or a simulated result. Flask never receives wallet seeds/private keys.
-
-## API and confirmation
-
-All paths below start with `/api/lending`:
-
-- `GET /status`, `/pools`, `/pools/<id>`: live network checks and validated pool data when configured.
-- `POST /auth/challenge`, `/auth/verify`, `/auth/logout`: one-time signed challenge and session lifecycle.
-- `GET /wallet`: validated balances, vault shares and relevant native loans for the authenticated wallet.
-- `POST /intents`: prepare `trustline`, `deposit`, `withdraw` or `repay` with decimal-string amounts, ledger expiry and capped XRP fee.
-- `POST /intents/<id>/submit`: accept a signed blob only if it matches the prepared transaction; persist its hash and submit.
-- `GET /intents/<id>` and `/intents`: reconcile validated ledger results and show wallet-scoped history.
-
-Submission engine results are diagnostic, not settlement. Only `validated=true`, matching transaction fields/hash and `meta.TransactionResult=tesSUCCESS` confirms an intent. Balances are read from the ledger, never credited in SQLite. Repeating submission uses the same blob/hash. A transaction not found can remain pending; automatic expiry/replacement is not implemented. Explorer links use the selected network's configured prefix; dedicated-network links remain absent until independently verified.
-
-## Verification boundaries
-
-133 offline tests passed, including 23 new integration test cases. RPC is mocked; signature verification uses real local cryptography. Coverage includes replay/expiry, wallet isolation, issuer/network/amendment gates, exact signed payload matching, decimal amounts, borrower validation and validated success versus pending/failure.
-
-Headless Chromium checked actual Flask pool navigation, missing-wallet handling, workflow and a 390px mobile layout with no horizontal overflow. The invoice form check used an explicitly mocked authenticated wallet response. No browser wallet transaction was signed. Desktop/mobile screenshots are in `docs/screenshots/`.
-
-The next live milestone requires an official RLUSD issuer on a native-lending-enabled network, real funded accounts and deployed RLUSD vault/broker objects, plus confirmed GemWallet codec support. Full origination additionally requires implementing the broker/borrower co-signing flow. Until then this is a guarded integration foundation, not a demonstrated end-to-end lending system.
+Sources: [native lending](https://xrpl.org/docs/concepts/tokens/lending-protocol), [VaultCreate and lifecycle](https://xrpl.org/docs/references/protocol/transactions/types/vaultcreate), [official examples](https://github.com/XRPLF/xrpl-dev-portal/tree/master/_code-samples/lending-protocol).
