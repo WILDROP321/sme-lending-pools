@@ -93,51 +93,64 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md). Pick your assigned GitHub issue, create
 
 See [live integration and workflow](docs/LENDING_INTEGRATION.md) for protocol boundaries and remaining work.
 
-## Mock company funding demo
+## Interactive investor demo
 
-Run `python -m flask init-db` to apply migration 006 and seed 50 fictional companies once. Get funded (`#borrow`) accepts company name, requested amount, debtor, and invoice due date without a wallet. SQLite persists applications through `GET/POST /api/mock-companies`; Applications (`#applications`) lists and filters them. Pool detail pages display matching mock companies separately from ledger assets.
+Open `http://127.0.0.1:5002/#pool/core`. The website uses `/api/investor-demo` for pool accounting, companies, receipts and certificates. Once the demo is initialized, the old mock API endpoints delegate to the same engine, so existing tabs cannot write into a separate balance store. Native Devnet APIs remain separate.
 
-Scores are random integers from 35–90 for new requests. Ranges are 0–19 Decline, 20–49 Risky (Opportunity), 50–69 Medium (Balanced Growth), and 70–100 Safe (Core Income). Higher scores mean safer companies. Seed records cover all four categories. “From” is the invoice start/submission date. The decided disbursement is an illustrative requested amount × score / 100, rounded to cents; declined seed records have zero. Amounts are stored as integer cents. No mock application or estimate initiates a loan or transfers funds.
+### Investor behavior
 
-## Hosted company database (Supabase)
+- A deposit immediately buys a proportional share of the current pool. The screen previews the new 30-day earnings before submission, including its increase over the current projection.
+- **Safe 4–8%, Medium 8–12%, Risky 12–18%** are annual pool quote bands. The initial quote is each band's midpoint. Opening capital is represented by ten fictional founding investors; existing deposits are imported as the `You` account.
+- Further deposits to `You` increase invested capital without inventing another investor. Select **New demo investor** on the Invest page, enter a name, then invest through a pool. Its first deposit creates a distinct participant, increasing the count and lowering the quote. Switch accounts from the same selector.
+- **Get funded** creates a verified fictional request. Eligible companies join their score group, raise demand, and receive funding from available pool cash. Excess requests queue and are reconsidered when deposits or repayments add liquidity. Funding skips requests that cannot fit; requests are never partially disbursed.
+- Investor joins below the floor and investor exits above the ceiling are rejected atomically. Company entries are always permitted, with the quote capped at the ceiling. Company exits below the floor are rejected; an outstanding loan must also be repaid before exit. Repayment itself is always allowed regardless of the membership guard.
+- Withdrawals cannot exceed the investor's principal or available cash after reserving interest already credited to investors.
 
-The `flow-lending` project hosts `public.mock_companies`. Set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `FLOW_SUPABASE_API_KEY` in the server's ignored `.env`, then restart Flask. The funding form, Applications list, Edit action, and pool company lists use this hosted store. `PATCH /api/mock-companies/<id>` updates the four form fields and recalculates the mock assessment. The pool is a generated Postgres column, so score changes always update its classification.
+The rate formula uses a fixed baseline captured at initialization:
 
-Only the company store moved to Supabase; wallet sessions, native lending intents, and the legacy invoice workflow still use SQLite. Hosted outages return 503 instead of falling back to a separate local company store. Without Supabase configuration, SQLite remains available for local development and isolated tests.
+```
+raw APR bps = midpoint bps × (active company members + 1) × baseline investor count
+              / ((baseline company members + 1) × current investor count)
+quoted APR = raw APR limited to the pool's permitted range
+```
 
-`supabase/schema.sql` documents the hosted schema and RLS policies. To provision another project, replace `FLOW_API_KEY_SHA256` with the SHA-256 hex digest of a new random server-only `FLOW_SUPABASE_API_KEY` before applying the schema. The publishable key alone cannot read or modify companies: RLS also verifies the backend header credential. No service-role key is used. Keep the backend credential out of browser code and Git. `supabase/seed.sql` contains only the fictional initial company snapshot; run it once on an empty table. New form submissions remain stored in Supabase across application restarts. This is a shared fictional demo; the Flask form and Applications list are available without user authentication.
+Membership includes queued and funded companies, plus repaid companies until they explicitly exit. The raw rate is checked before a guarded membership change; the UI shows the bounded quote. More company entries may increase raw demand beyond the ceiling without increasing the quote further.
 
-## Mock vault accounting and funding certificates
+### Projections and actual simulated receipts
 
-The investment views now use mock vault accounts in Supabase, labelled **Mock vault assets**. The underlying XRPL balances are unchanged. Apply `supabase/mock_vaults.sql` once after `schema.sql`, replacing the same `FLOW_API_KEY_SHA256` placeholder. SQLite development uses migration 007. Each pool's opening balance is twice the sum of decided disbursements at initialization. It is a fixed opening balance, not recalculated when applications are added or edited.
+```
+your pool share = your invested principal / total invested capital
+30-day projection = your share × outstanding funded principal × current APR × 30/365
+annual projection = your share × outstanding funded principal × current APR
+capital + received interest reserve = available cash + outstanding funded principal
+```
 
-- Deposit: `POST /api/mock-vaults/<Safe|Medium|Risky>/deposits` with `amount` and UUID `request_key`. The database credits the balance and records a transaction. Reusing the same key and amount returns the existing transaction; using that key for different details is rejected.
-- Approval: `POST /api/mock-vaults/approvals/<company_id>` with `{}`. The database locks the application and pool, verifies pending status, a future invoice date and adequate funds, deducts the decided score-based amount, records a permanent certificate snapshot and marks the application approved. Repeated approval returns the same transaction. Declined applications cannot be funded. Approved applications cannot be edited.
-- Accounts/history: `GET /api/mock-vaults` returns opening balances, current balances, deposited and disbursed totals, and transaction history. Balances never go negative. PostgreSQL functions run as the caller, with RLS requiring the private Flask backend header.
-- Certificate: `GET /api/mock-vaults/certificates/<company_id>` is available only after successful approval. The printable HTML certificate includes the transaction reference, source pool, recipient company, approved transfer, invoice debtor/start/due dates and repayment terms. Use **Print / Save as PDF** to export it. Repayment is the full requested amount due on the invoice date; the transferred amount is the score-based advance. The certificate clearly identifies the transaction as simulated.
+These are forward scenarios at today's quote and utilization, not accrued balances or the sum of existing certificate obligations. Idle capital earns no projected interest. Increasing a deposit increases its share of projected interest; adding an investor changes both membership and utilization. Adding a funded company changes demand and deployed principal. Money uses integer cents, with projections rounded down.
 
-All these actions are a shared fictional demo. They do not require a wallet and do not transfer real currency, move on-chain tokens, or issue legally binding agreements. Native wallet and lending endpoints remain separate from mock accounting.
+**Simulate repayment** records an external fictional borrower payment of the certificate's agreed amount. It returns principal to cash and credits the actual agreed interest to current investor shares; rounding remainders are allocated deterministically so every cent balances. Interest received is displayed separately from projected earnings and reserved from principal withdrawals. It is a simulated account credit, not an on-chain payment. Loan repayment and repeated deposits are idempotent.
 
-## Automatic mock funding
+New loans keep the 5% origination fee. Their interest uses the pool APR at funding, locked for the term, with actual/365 day counting and maturity one day after the invoice payment date. Historical certificates retain their original terms. Amy's original walkthrough contract still has 70,000 principal, 66,500 net cash, a 3,500 fee and 5,600 fixed interest, totaling 75,600 due November 20, 2026.
 
-Apply `supabase/automatic_mock_funding.sql` after `mock_vaults.sql`. New requests (and edits to unfunded requests) automatically deduct their score-based decided amount and create their certificate within the database transaction. There is no manual approval step in the UI. Existing historical records are not backfilled. Requests with insufficient liquidity remain unfunded; add funds and resubmit the request. SQLite development follows the same flow in the company store.
+### Amy's Cookies walkthrough
 
-The pool displays **Total vault assets** (remaining vault cash), **Assets on loan** (recorded disbursements), and **Current available withdrawal** (remaining available cash). Deposits increase cash, while automatic funding reduces cash and increases assets on loan.
+Open `/#workflow`: six interactive scenes show fictional sign-in, the Walmart invoice, scripted verification, Medium pool selection, animated disbursement and the actual saved certificate. Replaying uses the same request and receipt and never transfers twice. The login and checks are clearly marked as demo role-play; no real identity verification or invoice validation is claimed. The final screen embeds the printable certificate.
 
-## Current investor balances and earnings
+### Storage and deployment
 
-Apply `supabase/investor_metrics.sql` after automatic funding (SQLite migration 008). Each pool has **1,000,000 MOCKRLUSD opening capital**. Existing deposits and company transfers remain recorded and are preserved when rebasing opening capital. Current pool cash is opening capital + deposits - company disbursements.
+Apply `supabase/investor_demo.sql` to the existing configured hosted project. It adds `demo_state` and `demo_revision` to the existing protected `mock_vaults` rows, with **no new grants, RPCs or RLS policies**. Existing private backend-header access is retained. SQLite uses migration 010; back up local data and run `python -m flask migrate-db`.
 
-- **Total vault assets**: current pool cash.
-- **Assets on loan**: the demo investor's deposited principal in this pool, not company disbursements.
-- **Current available withdrawal**: accrued investment earnings only, capped by current pool cash. Principal is not included.
+The engine imports existing company records, balances and receipts once per pool. Each subsequent mutation updates one complete pool document (accounts, memberships, queue and events) with compare-and-swap on the revision. Concurrent writes retry against the current state. An unsuccessful action does not commit. The original SQL columns and tables remain an import archive; the demo document is the authoritative current state after initialization. Restarting the app does not reseed or discard the simulation. Hosted outages never switch to a local store.
 
-Rates stored in the database are Safe **5% APR**, Medium **10% APR**, Risky **20% APR**. Simple interest accrues from each deposit's UTC timestamp using a 365-day year: deposited cents × APR × elapsed seconds / seconds per year. Earnings are summed with decimal arithmetic and rounded down to cents. Rates, deposit amounts and timestamps persist; earnings are derived from those records at read time. Deposits immediately increase invested principal and pool cash. Company funding reduces pool cash without changing invested principal. The pool page refreshes earnings every 30 seconds without resetting the deposit form. Your positions shows the same calculated figures across all pools.
+Primary API routes:
 
-This prototype uses one shared mock investor account, matching its existing unauthenticated demo. All demo deposits contribute to that account's principal and earnings. These are simulated earnings, not realized on-chain returns. No earnings withdrawal transaction is implemented by displaying the availability figure.
+- `GET /api/investor-demo/vaults`, `GET /api/investor-demo/companies`
+- `POST /api/investor-demo/<pool>/preview` — read-only hypothetical deposit and queue allocation
+- `POST /api/investor-demo/<pool>/deposits` — amount, UUID request key, optional investor ID/name
+- `POST /api/investor-demo/<pool>/withdrawals` — principal amount and UUID request key
+- `POST /api/investor-demo/companies` — verified fictional request, classified and funded/queued
+- `POST /api/investor-demo/companies/<id>/repay` or `/exit`
+- `POST /api/investor-demo/approvals/<id>` — explicit funding for a queued/unverified request
+- `POST /api/investor-demo/walkthrough` — create/retrieve Amy's fictional request once
+- `GET /api/investor-demo/certificates/<id>` — preserved approval terms
 
-### Existing company funding reconciliation
-
-The 41 eligible initial mock companies are now funded in Supabase using the same atomic approval operation as new applications. Each has one disbursement receipt and certificate; declined companies receive no funds. `supabase/reconcile_existing_companies.sql` records this explicitly authorized one-time operation and is not run at startup. Replays skip approved companies.
-
-Pool cash follows opening capital (1,000,000 MOCKRLUSD) + investor deposits − funded company disbursements. Investor principal remains the sum of deposits; company funding does not reduce it. Available withdrawal contains accrued interest only, capped by pool cash.
+Run `.venv/bin/python -m pytest -q`, `node --check services/api/lending_pool/static/app.js` and `git diff --check`. Tests cover preview parity, larger deposits, headcount and rate guards, company entry and exit, automatic queue funding, actual/365 interest, cash conservation, concurrent deposits, replay safety, repayments and preservation of Amy's original agreement.

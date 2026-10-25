@@ -69,6 +69,8 @@ def create_app(test_config=None):
     app.register_blueprint(mock_companies)
     from .mock_vaults import mock_vaults
     app.register_blueprint(mock_vaults)
+    from .investor_demo import investor_demo
+    app.register_blueprint(investor_demo)
 
     @app.get("/")
     def index():

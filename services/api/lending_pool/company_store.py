@@ -66,13 +66,6 @@ def save_record(fields, record_id=None):
         else:
             assignments = ', '.join(f'{name} = ?' for name in fields)
             db.execute(f'UPDATE mock_companies SET {assignments} WHERE id = ?', (*fields.values(), record_id))
-        from .mock_vaults import local_approve
-        from werkzeug.exceptions import HTTPException
-        try:
-            local_approve(record_id, db)
-        except HTTPException as error:
-            if error.code != 409 or error.description != 'Insufficient mock vault assets':
-                raise
 
     row = db.execute('SELECT * FROM mock_companies WHERE id = ?', (record_id,)).fetchone()
     if row is None:

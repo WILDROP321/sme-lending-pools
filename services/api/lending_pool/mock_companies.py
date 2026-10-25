@@ -1,7 +1,7 @@
 """Persistent fictional invoice applications, separate from ledger balances."""
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import Decimal, InvalidOperation
 import secrets
 
 from flask import Blueprint, abort, jsonify, request
@@ -36,26 +36,41 @@ def amount_in_cents(value, field='money_requested'):
 
 @mock_companies.get('')
 def list_companies():
-    return jsonify(companies=company_store.list_records(), mode='mock', storage='supabase' if company_store.hosted() else 'sqlite')
+    from . import investor_demo
+    if investor_demo.active():
+        return investor_demo.companies()
+    from .mock_vaults import transactions
+    snapshots = {t['company_id']:t['certificate'] for t in transactions() if t['kind']=='disbursement'}
+    rows = company_store.list_records()
+    for row in rows:
+        row['terms'] = snapshots.get(row['id'])
+        row['account_balance_cents'] = row['terms']['disbursed_cents'] if row['terms'] else 0
+    return jsonify(companies=rows, mode='mock', storage='supabase' if company_store.hosted() else 'sqlite')
 
 
 @mock_companies.post('')
 @mock_companies.patch('/<int:record_id>')
 def create_company(record_id=None):
-    body = json_body({'company_name', 'money_requested', 'debtor', 'invoice_due'})
+    from . import investor_demo
+    if investor_demo.active():
+        return investor_demo.create_company(record_id)
+    body = json_body({'company_name', 'money_requested', 'debtor', 'invoice_due', 'risk_factor'})
     company = text_field(body, 'company_name', 160)
     debtor = text_field(body, 'debtor', 160)
     amount_cents = amount_in_cents(body.get('money_requested'))
     try:
         due = date.fromisoformat(body.get('invoice_due', ''))
-        if due <= datetime.now(ZoneInfo('America/New_York')).date():
+        if due == date.max or due <= datetime.now(ZoneInfo('America/New_York')).date():
             raise ValueError
     except (TypeError, ValueError):
         abort(400, description='invoice_due must be a future date (YYYY-MM-DD).')
-    score = 35 + secrets.randbelow(56)
+    score = body.get('risk_factor', 62 if company.casefold() == "amy's cookies" else 35 + secrets.randbelow(56))
+    if isinstance(score, bool) or not isinstance(score, int) or not 0 <= score <= 100:
+        abort(400, description='risk_factor must be an integer from 0 to 100.')
     pool = pool_for_score(score)
-    decided = int((Decimal(amount_cents) * score / 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
-    fields = dict(company_name=company, risk_factor=score, status='pending',
+    fee = (amount_cents * 5 + 50) // 100
+    decided = amount_cents - fee if score >= 20 else 0
+    fields = dict(company_name=company, risk_factor=score, status='declined' if score < 20 else 'pending',
                   decided_disbursement_cents=decided, money_requested_cents=amount_cents,
                   debtor=debtor, invoice_due=due.isoformat())
     if record_id is None:

@@ -31,12 +31,14 @@ def test_submission_is_saved_without_wallet(app, client, random_value, score, po
     assert row['risk_factor'] == score
     assert row['pool'] == pool
     assert row['money_requested_cents'] == 100001
-    assert row['decided_disbursement_cents'] == (100001*score+50)//100
+    assert row['decided_disbursement_cents'] == 95001
     assert row['source'] == 'application'
-    assert client.get('/api/mock-companies').json['companies'][0] == row
+    listed = client.get('/api/mock-companies').json['companies'][0]
+    assert all(listed[k] == value for k, value in row.items())
+    assert listed['account_balance_cents'] == 0
 
 
-@pytest.mark.parametrize('changes', [dict(money_requested='NaN'),dict(money_requested='Infinity'),dict(money_requested='0'),dict(money_requested='1.001'),dict(company_name=' '),dict(debtor=''),dict(invoice_due='yesterday'),dict(invoice_due='2000-01-01'),dict(risk_factor=99)])
+@pytest.mark.parametrize('changes', [dict(money_requested='NaN'),dict(money_requested='Infinity'),dict(money_requested='0'),dict(money_requested='1.001'),dict(company_name=' '),dict(debtor=''),dict(invoice_due='yesterday'),dict(invoice_due='2000-01-01'),dict(risk_factor=101),dict(risk_factor=True),dict(risk_factor=1.5)])
 def test_invalid_submission_does_not_insert(client, changes):
     payload=dict(company_name='New Company',money_requested='100',debtor='Debtor Inc',invoice_due='2099-01-01')
     payload.update(changes)
@@ -54,7 +56,7 @@ def test_update_reassesses_and_persists(client):
     assert row['id'] == existing['id']
     assert row['from_date'] == existing['from_date']
     assert row['pool'] == 'Safe'
-    assert row['decided_disbursement_cents'] == 1800000
+    assert row['decided_disbursement_cents'] == 1900000
     assert len(client.get('/api/mock-companies').json['companies']) == 50
 
 
@@ -62,7 +64,7 @@ def test_hosted_store_is_used_and_outage_does_not_split_records(app, client):
     import httpx
     app.config.update(SUPABASE_URL='https://example.supabase.co', SUPABASE_PUBLISHABLE_KEY='public-test-key', FLOW_SUPABASE_API_KEY='backend-test-key')
     response = httpx.Response(200, json=[{'id': 123, 'company_name': 'Hosted company'}], request=httpx.Request('GET', 'https://example.supabase.co'))
-    with patch('lending_pool.company_store.httpx.request', return_value=response) as call:
+    with patch('lending_pool.mock_vaults.transactions', return_value=[]), patch('lending_pool.company_store.httpx.request', return_value=response) as call:
         result = client.get('/api/mock-companies')
         assert result.json['storage'] == 'supabase'
         assert result.json['companies'][0]['id'] == 123
@@ -78,7 +80,7 @@ def test_hosted_insert_omits_generated_pool_and_updates_with_patch(app, client):
     app.config.update(SUPABASE_URL='https://example.supabase.co', SUPABASE_PUBLISHABLE_KEY='public-test-key', FLOW_SUPABASE_API_KEY='backend-test-key')
     response = httpx.Response(200, json=[{'id': 51}], request=httpx.Request('POST', 'https://example.supabase.co'))
     payload=dict(company_name='Hosted company',money_requested='100',debtor='Mock debtor',invoice_due='2099-01-01')
-    with patch('lending_pool.company_store.httpx.request', return_value=response) as call:
+    with patch('lending_pool.investor_demo.active',return_value=False), patch('lending_pool.company_store.httpx.request', return_value=response) as call:
         assert client.post('/api/mock-companies', json=payload).status_code == 201
         assert call.call_args_list[0].args[0] == 'POST'
         assert 'pool' not in call.call_args_list[0].kwargs['json']
