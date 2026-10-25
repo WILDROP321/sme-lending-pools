@@ -16,6 +16,7 @@ This is an unauthenticated local development API. Review decisions are local dem
 | GET | `/api/contribution-intents` | `{"contribution_intents": [...]}`; optional `pool_id` and `investor_id` filters |
 | POST | `/api/contribution-intents` | Create pending intent; `{"contribution_intent": {...}}`, HTTP 201 |
 | GET | `/api/contribution-intents/<id>` | `{"contribution_intent": {...}}` or HTTP 404 |
+| POST | `/api/contribution-intents/<id>/deposit` | Verify one validated Devnet transaction and mark the intent funded; `{"contribution_intent": {...}}`, HTTP 200 |
 | GET | `/api/funding-requests` | `{"funding_requests": [...]}` |
 | POST | `/api/funding-requests` | Create submitted request; `{"funding_request": {...}}`, HTTP 201 |
 | GET | `/api/funding-requests/<id>` | `{"funding_request": {...}, "reviews": [...]}` |
@@ -42,7 +43,7 @@ curl -X POST http://127.0.0.1:5001/api/investors \
   -d '{"name":"Demo Investor"}'
 ```
 
-Only `name` is accepted (non-empty text, at most 120 characters). The response includes `id`, `name`, and `created_at`. Duplicate names are allowed; use IDs to identify records. This endpoint does not create a wallet.
+`name` (non-empty text, at most 120 characters) and an optional `xrpl_address` are accepted. The response includes `id`, `name`, `xrpl_address` (`null` if not set), and `created_at`. Duplicate names are allowed; use IDs to identify records. This endpoint does not create or verify ownership of a wallet — `xrpl_address` is a claimed address, checked only for classic-address format. `POST /api/pools` accepts the same optional `xrpl_address` field.
 
 Use the returned investor ID and an existing pool ID to record an intent:
 
@@ -57,6 +58,23 @@ All three fields are required positive signed 64-bit integers; booleans, fractio
 An intent can select a draft pool, because it records interest only. It does not transfer funds, alter a pool balance, or represent withdrawable capital. Client-supplied `status`, transaction hashes, and all other unknown fields are rejected with 400. The database also constrains intent status to `pending`; no confirmation endpoint exists in this milestone. Repeated POSTs create separate pending intents, so the UI should avoid duplicate submissions.
 
 Filter selections with `GET /api/contribution-intents?investor_id=1&pool_id=1`. Filters must be positive signed 64-bit integers. Matching no records returns an empty array. For a single record, use `GET /api/contribution-intents/<id>`.
+
+## Confirm a deposit
+
+```sh
+curl -X POST http://127.0.0.1:5001/api/contribution-intents/1/deposit \
+  -H 'Content-Type: application/json' \
+  -d '{"tx_hash":"EEC615ACB705D77793EEE2F7D5403F9CE8AFF75C43ABA5CF94E361B8F7976BB5"}'
+```
+
+Only `tx_hash` is accepted: a 64-character hexadecimal Devnet transaction hash. The server never trusts the claim — it independently looks the transaction up on XRPL Devnet (`/api/xrpl/status`'s network) and checks all of the following before crediting anything:
+
+- the transaction is a validated `Payment` (not pending, not an issued-currency payment),
+- its sender matches the investor's registered `xrpl_address`,
+- its destination matches the pool's registered `xrpl_address`,
+- its delivered amount (not the requested amount, which can differ for a partial payment) equals the intent's `amount_drops` exactly.
+
+On success the intent's `status` becomes `funded` and the response is `{"contribution_intent": {...}}`, HTTP 200. The investor and pool must each have a registered `xrpl_address` (set at creation) or the request returns 409. Any mismatch above, an intent that is not `pending`, or a `tx_hash` already recorded against any intent also returns 409 — the same transaction can never fund two intents, and the same intent can never be funded twice. A malformed `tx_hash` returns 400 before any network lookup. An unreachable Devnet endpoint returns 503 without changing the intent. See [LEDGER_DESIGN.md](LEDGER_DESIGN.md) for the full design and a reproducible real Devnet transaction.
 
 ## Submit a funding request
 
@@ -122,6 +140,6 @@ Malformed or invalid JSON fields return 400; missing resources return 404; illeg
 
 The configured default is `https://s.devnet.rippletest.net:51234/`. Keep `XRPL_JSON_RPC_URL` on Devnet. `/api/xrpl/status` calls `server_info` through `xrpl-py` and returns `network`, `read_only`, `server_state`, and `validated_ledger`. It never creates an account or sends a transaction.
 
-For Benjamin's next milestone: reconcile a pending intent only after independently verifying a successful, validated Devnet transaction, its destination/pool, sender ownership, amount/currency, and a unique transaction hash. A claimed client hash or local approval is insufficient. The current migration intentionally provides neither confirmation nor balance-crediting functionality; add that with the reconciliation design and tests in a later migration.
+Reconciliation (implemented): `POST /api/contribution-intents/<id>/deposit` independently verifies a successful, validated Devnet transaction, its destination/pool, sender ownership, amount/currency, and a unique transaction hash before crediting anything. A claimed client hash or local approval is never sufficient on its own. See "Confirm a deposit" above, migration `003_ledger_receipts.sql`, and [LEDGER_DESIGN.md](LEDGER_DESIGN.md).
 
 References: [XRPL Python getting started](https://xrpl.org/docs/tutorials/get-started/get-started-python), [XRPL Devnet features](https://xrpl.org/docs/tutorials/advanced-developer-topics/protocol-development/testing-devnet-features), [Flask application factories](https://flask.palletsprojects.com/en/stable/patterns/appfactories/).
