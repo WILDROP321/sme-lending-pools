@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Flow &mdash; Get verified</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='onboarding.css') }}">
+  <script defer src="{{ url_for('static', filename='onboarding.js') }}"></script>
+</head>
+<body>
+  <canvas id="ledger-field" aria-hidden="true"></canvas>
+  <div class="app">
+    <div class="top">
+      <a class="brand" href="/"><span class="brand-mark">f</span>flow</a>
+      <button class="exit" type="button" id="exit-btn">Save &amp; exit</button>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-row" id="progress-row">
+        <span id="progress-label">Identity check</span>
+        <span class="qcount" id="progress-count"></span>
+      </div>
+      <div class="qbar" id="qbar"><i></i></div>
+    </div>
+    <div class="stage-wrap"><div class="stage" id="stage"></div></div>
+  </div>
+</body>
+</html>
