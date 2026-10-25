@@ -44,7 +44,7 @@ def test_upgrade_preserves_unversioned_records_and_is_repeatable(tmp_path):
     assert next_request.json["funding_request"]["id"] == 13
     with application.app_context():
         assert get_db().execute("PRAGMA foreign_key_check").fetchall() == []
-        assert [row["version"] for row in get_db().execute("SELECT version FROM schema_migrations ORDER BY version")] == [1, 2, 3, 4, 5]
+        assert [row["version"] for row in get_db().execute("SELECT version FROM schema_migrations ORDER BY version")] == [1, 2, 3, 4, 5, 6]
 
 
 def test_failed_upgrade_rolls_back_without_deleting_old_data(tmp_path):
@@ -65,4 +65,4 @@ def test_unknown_migration_version_is_not_silently_ignored(app):
         connection.commit()
         with pytest.raises(RuntimeError, match="does not match"):
             init_db()
-        assert connection.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0] == 6
+        assert connection.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0] == 7

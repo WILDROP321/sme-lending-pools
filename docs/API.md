@@ -19,8 +19,9 @@ This is an unauthenticated local development API. Review decisions are local dem
 | POST | `/api/contribution-intents/<id>/deposit` | Verify one validated Devnet transaction and mark the intent funded; `{"contribution_intent": {...}}`, HTTP 200 |
 | GET | `/api/funding-requests` | `{"funding_requests": [...]}` |
 | POST | `/api/funding-requests` | Create submitted request; `{"funding_request": {...}}`, HTTP 201 |
-| GET | `/api/funding-requests/<id>` | `{"funding_request": {...}, "reviews": [...]}` |
+| GET | `/api/funding-requests/<id>` | `{"funding_request": {...}, "reviews": [...], "disbursement": {...} or null}` |
 | POST | `/api/funding-requests/<id>/review` | Apply allowed review transition; `{"funding_request": {...}}`, HTTP 200 |
+| POST | `/api/funding-requests/<id>/disburse` | Verify one validated Devnet transaction and mark the request funded; `{"funding_request": {...}}`, HTTP 200 |
 | GET | `/api/xrpl/status` | Read-only Devnet status, or HTTP 503 if unavailable |
 
 ## Create a pool
@@ -89,7 +90,7 @@ Use an existing pool ID and replace the sample date with a future date.
 }
 ```
 
-`amount_drops` is a positive integer, never a decimal or boolean. 1 XRP = 1,000,000 drops. The starter stores amounts up to the SQLite signed 64-bit integer limit; this is a storage limit, not an underwriting or ledger eligibility rule. `business_name` must be non-empty text up to 160 characters. Dates must be future dates in `YYYY-MM-DD` format, evaluated using the server's date. The initial status is `submitted`.
+`amount_drops` is a positive integer, never a decimal or boolean. 1 XRP = 1,000,000 drops. The starter stores amounts up to the SQLite signed 64-bit integer limit; this is a storage limit, not an underwriting or ledger eligibility rule. `business_name` must be non-empty text up to 160 characters. Dates must be future dates in `YYYY-MM-DD` format, evaluated using the server's date. An optional `xrpl_address` (checked for classic-address format) is the business's registered destination for disbursement; it is required before the request can be disbursed. The initial status is `submitted`.
 
 ## Review a funding request
 
@@ -110,13 +111,31 @@ Then, after review:
 | `submitted` | `under_review`, `cancelled` | Yes |
 | `under_review` | `approved`, `rejected`, `cancelled` | Yes |
 | `approved` | `cancelled` | Yes |
-| `approved` | `funded` | Reserved for validated disbursement integration |
-| `funded` | `repaid`, `defaulted` | Reserved for repayment/default integration |
+| `approved` | `funded` | Via `POST /api/funding-requests/<id>/disburse` only, not this endpoint |
+| `funded` | `repaid`, `defaulted` | Reserved for repayment integration |
 | `rejected`, `cancelled`, `repaid`, `defaulted` | None | Terminal states |
 
 Review calls cannot set `funded`, `repaid`, or `defaulted`; unsupported targets return 400. A valid review target that cannot follow the current state returns 409, including a repeated decision. Direct `submitted → approved` is disallowed. A review changes no balance and sends no funds.
 
 Every successful review creates a history record with `funding_request_id`, `from_status`, `to_status`, `note`, `id`, and UTC `created_at`. The status update and audit insert are one transaction; concurrent reviews are serialized so an invalid repeat cannot create a second audit record. Read history with `GET /api/funding-requests/<id>`. The prototype has no reviewer authentication or authorization; notes are not proof of who made a decision.
+
+## Confirm a disbursement
+
+```sh
+curl -X POST http://127.0.0.1:5001/api/funding-requests/1/disburse \
+  -H 'Content-Type: application/json' \
+  -d '{"tx_hash":"29C2A1DBE71AC7446EAF6F9534EFDC6A2252E62EE43B8547F72ECD9B2C7FF7D7"}'
+```
+
+Only `tx_hash` is accepted, same 64-character hexadecimal format as deposit confirmation. The request must already be `approved` (reached only through the review flow above) and have a registered `xrpl_address`; the pool must have a registered `xrpl_address` too. The server independently verifies the transaction on Devnet and checks:
+
+- the transaction is a validated `Payment`,
+- its sender matches the pool's registered `xrpl_address`,
+- its destination matches the funding request's registered `xrpl_address`,
+- its delivered amount equals the request's `amount_drops` exactly,
+- the pool's available balance (sum of its `funded` contribution intents minus everything it has already disbursed) covers the amount.
+
+On success the request's `status` becomes `funded` and the response is `{"funding_request": {...}}`, HTTP 200. Any mismatch above, insufficient pool balance, a request that is not `approved`, or a `tx_hash`/request already recorded also returns 409 — the same transaction can never disburse two requests, and the same request can never be disbursed twice. A malformed `tx_hash` returns 400 before any network lookup; an unreachable Devnet endpoint returns 503 without changing the request.
 
 ## Reproduce the backend flow
 
@@ -140,6 +159,6 @@ Malformed or invalid JSON fields return 400; missing resources return 404; illeg
 
 The configured default is `https://s.devnet.rippletest.net:51234/`. Keep `XRPL_JSON_RPC_URL` on Devnet. `/api/xrpl/status` calls `server_info` through `xrpl-py` and returns `network`, `read_only`, `server_state`, and `validated_ledger`. It never creates an account or sends a transaction.
 
-Reconciliation (implemented): `POST /api/contribution-intents/<id>/deposit` independently verifies a successful, validated Devnet transaction, its destination/pool, sender ownership, amount/currency, and a unique transaction hash before crediting anything. A claimed client hash or local approval is never sufficient on its own. See "Confirm a deposit" above, migration `003_ledger_receipts.sql`, and [LEDGER_DESIGN.md](LEDGER_DESIGN.md).
+Reconciliation (implemented): `POST /api/contribution-intents/<id>/deposit` and `POST /api/funding-requests/<id>/disburse` independently verify a successful, validated Devnet transaction, its destination/sender, amount/currency, and a unique transaction hash before crediting anything. A claimed client hash or local approval is never sufficient on its own. See "Confirm a deposit" and "Confirm a disbursement" above, migrations `005_ledger_receipts.sql` and `006_disbursements.sql`, and [LEDGER_DESIGN.md](LEDGER_DESIGN.md).
 
 References: [XRPL Python getting started](https://xrpl.org/docs/tutorials/get-started/get-started-python), [XRPL Devnet features](https://xrpl.org/docs/tutorials/advanced-developer-topics/protocol-development/testing-devnet-features), [Flask application factories](https://flask.palletsprojects.com/en/stable/patterns/appfactories/).

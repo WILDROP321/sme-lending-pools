@@ -13,7 +13,7 @@ TX_HASH = "A" * 64
 
 def fake_result(**overrides):
     fields = dict(
-        tx_hash=TX_HASH, validated=True, amount_drops=5_000_000, intent_id=1,
+        tx_hash=TX_HASH, validated=True, amount_drops=5_000_000, reference_id=1,
         sender_address=INVESTOR_ADDRESS, destination_address=POOL_ADDRESS,
     )
     fields.update(overrides)

@@ -10,6 +10,7 @@ from xrpl.core.addresscodec import is_valid_classic_address
 from . import ledger
 from .db import get_db
 from .deposits import DepositMismatch, confirm_deposit
+from .disbursements import DisbursementMismatch, confirm_disbursement
 from .reviews import InvalidTransition, REVIEW_TARGETS, review_request
 
 api = Blueprint("api", __name__, url_prefix="/api")
@@ -199,7 +200,12 @@ def confirm_contribution_intent_deposit(intent_id):
 
 @api.get("/funding-requests")
 def list_funding_requests():
-    rows = get_db().execute("SELECT * FROM funding_requests ORDER BY id").fetchall()
+    rows = get_db().execute(
+        """SELECT funding_requests.*, disbursements.tx_hash AS tx_hash
+           FROM funding_requests
+           LEFT JOIN disbursements ON disbursements.funding_request_id = funding_requests.id
+           ORDER BY funding_requests.id"""
+    ).fetchall()
     return jsonify(funding_requests=[dict(row) for row in rows])
 
 
@@ -217,14 +223,15 @@ def create_funding_request():
         abort(400, description="expected_payment_date must use YYYY-MM-DD.")
     if parsed_date.isoformat() != payment_date or parsed_date <= date.today():
         abort(400, description="expected_payment_date must be a future date in YYYY-MM-DD format.")
+    xrpl_address = optional_xrpl_address(body)
     connection = get_db()
     if connection.execute("SELECT id FROM pools WHERE id = ?", (pool_id,)).fetchone() is None:
         abort(404, description="Pool not found.")
     cursor = connection.execute(
         """INSERT INTO funding_requests
-           (pool_id, business_name, amount_drops, expected_payment_date)
-           VALUES (?, ?, ?, ?)""",
-        (pool_id, business_name, amount, payment_date),
+           (pool_id, business_name, amount_drops, expected_payment_date, xrpl_address)
+           VALUES (?, ?, ?, ?, ?)""",
+        (pool_id, business_name, amount, payment_date, xrpl_address),
     )
     connection.commit()
     row = connection.execute(
@@ -239,7 +246,16 @@ def get_funding_request(request_id):
     rows = get_db().execute(
         "SELECT * FROM funding_request_reviews WHERE funding_request_id = ? ORDER BY id", (request_id,)
     ).fetchall()
-    return jsonify(funding_request=record, reviews=[dict(row) for row in rows])
+    disbursement = get_db().execute(
+        """SELECT tx_hash, amount_drops, sender_address, destination_address, created_at
+           FROM disbursements WHERE funding_request_id = ?""",
+        (request_id,),
+    ).fetchone()
+    return jsonify(
+        funding_request=record,
+        reviews=[dict(row) for row in rows],
+        disbursement=dict(disbursement) if disbursement else None,
+    )
 
 
 @api.post("/funding-requests/<int:request_id>/review")
@@ -259,6 +275,25 @@ def review_funding_request(request_id):
         abort(404, description="Funding request not found.")
     except InvalidTransition as error:
         abort(409, description=str(error))
+    return jsonify(funding_request=record)
+
+
+@api.post("/funding-requests/<int:request_id>/disburse")
+def disburse_funding_request(request_id):
+    body = json_body({"tx_hash"})
+    tx_hash = transaction_hash_field(body)
+    if request_id > 9_223_372_036_854_775_807:
+        abort(404, description="Funding request not found.")
+    client = JsonRpcClient(current_app.config["XRPL_JSON_RPC_URL"])
+    try:
+        record = confirm_disbursement(client, request_id, tx_hash)
+    except LookupError:
+        abort(404, description="Funding request not found.")
+    except DisbursementMismatch as error:
+        abort(409, description=str(error))
+    except Exception:
+        current_app.logger.warning("Devnet disbursement verification failed", exc_info=True)
+        abort(503, description="XRPL endpoint unavailable; retry later.")
     return jsonify(funding_request=record)
 
 

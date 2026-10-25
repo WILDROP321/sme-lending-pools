@@ -47,7 +47,7 @@ def main():
     print(f"tx_hash: {result.tx_hash}")
     print(f"validated: {result.validated}")
     print(f"amount_drops: {result.amount_drops}")
-    print(f"intent_id: {result.intent_id}")
+    print(f"reference_id: {result.reference_id}")
     print(f"Inspect: https://devnet.xrpl.org/transactions/{result.tx_hash}")
 
     PROOF_PATH.write_text(json.dumps(asdict(result), indent=2))

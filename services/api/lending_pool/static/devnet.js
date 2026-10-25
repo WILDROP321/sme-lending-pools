@@ -81,6 +81,7 @@
     state.pools = poolData.pools;
     populateSelect(document.getElementById("intent-investor"), state.investors, "Choose an investor");
     populateSelect(document.getElementById("intent-pool"), state.pools, "Choose a pool");
+    populateSelect(document.getElementById("request-pool"), state.pools, "Choose a pool");
   }
 
   function nameFor(records, id) {
@@ -190,6 +191,151 @@
     }
   }
 
+  function reviewButton(label, requestId, targetStatus, rowStatus, onDone) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "subtle";
+    button.textContent = label;
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      setStatus(rowStatus, "", false);
+      try {
+        await api("POST", `/api/funding-requests/${requestId}/review`, { status: targetStatus });
+        await onDone();
+      } catch (error) {
+        setStatus(rowStatus, error.message, true);
+        button.disabled = false;
+      }
+    });
+    return button;
+  }
+
+  function buildRequestActionCell(fundingRequest) {
+    const cell = document.createElement("td");
+    const rowStatus = document.createElement("p");
+    rowStatus.className = "row-status";
+
+    if (fundingRequest.status === "funded") {
+      const badge = document.createElement("span");
+      badge.className = "funded-badge";
+      badge.textContent = "✓ Disbursed";
+      cell.appendChild(badge);
+      if (fundingRequest.tx_hash) {
+        const link = document.createElement("a");
+        link.className = "tx-hash";
+        link.href = `https://devnet.xrpl.org/transactions/${fundingRequest.tx_hash}`;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.textContent = `${fundingRequest.tx_hash.slice(0, 10)}…${fundingRequest.tx_hash.slice(-6)}`;
+        cell.appendChild(link);
+      }
+      return cell;
+    }
+
+    if (fundingRequest.status === "submitted") {
+      cell.appendChild(reviewButton("Move to review", fundingRequest.id, "under_review", rowStatus, refreshRequests));
+      cell.appendChild(rowStatus);
+      return cell;
+    }
+
+    if (fundingRequest.status === "under_review") {
+      const actions = document.createElement("div");
+      actions.className = "deposit-form";
+      actions.appendChild(reviewButton("Approve", fundingRequest.id, "approved", rowStatus, refreshRequests));
+      actions.appendChild(reviewButton("Reject", fundingRequest.id, "rejected", rowStatus, refreshRequests));
+      cell.appendChild(actions);
+      cell.appendChild(rowStatus);
+      return cell;
+    }
+
+    if (fundingRequest.status === "approved") {
+      const form = document.createElement("form");
+      form.className = "deposit-form";
+      const input = document.createElement("input");
+      input.className = "mono";
+      input.placeholder = "64-char tx hash";
+      input.maxLength = 64;
+      input.required = true;
+      input.setAttribute("aria-label", `Transaction hash for funding request ${fundingRequest.id}`);
+      const button = document.createElement("button");
+      button.type = "submit";
+      button.textContent = "Disburse";
+      form.appendChild(input);
+      form.appendChild(button);
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        button.disabled = true;
+        setStatus(rowStatus, "Verifying against Devnet…", false);
+        try {
+          await api("POST", `/api/funding-requests/${fundingRequest.id}/disburse`, { tx_hash: input.value.trim() });
+          setStatus(rowStatus, "Disbursed.", false);
+          await refreshRequests();
+        } catch (error) {
+          setStatus(rowStatus, error.message, true);
+          button.disabled = false;
+        }
+      });
+
+      cell.appendChild(form);
+      cell.appendChild(rowStatus);
+      return cell;
+    }
+
+    const badge = document.createElement("span");
+    badge.className = "muted";
+    badge.textContent = fundingRequest.status;
+    cell.appendChild(badge);
+    return cell;
+  }
+
+  async function refreshRequests() {
+    const body = document.getElementById("requests-body");
+    const { funding_requests: requests } = await api("GET", "/api/funding-requests");
+    body.textContent = "";
+    if (!requests.length) {
+      const row = document.createElement("tr");
+      const cell = document.createElement("td");
+      cell.colSpan = 6;
+      cell.className = "muted";
+      cell.textContent = "No funding requests yet. Submit one on the right.";
+      row.appendChild(cell);
+      body.appendChild(row);
+      return;
+    }
+    for (const fundingRequest of requests) {
+      const row = document.createElement("tr");
+
+      const idCell = document.createElement("td");
+      idCell.textContent = `#${fundingRequest.id}`;
+      row.appendChild(idCell);
+
+      const businessCell = document.createElement("td");
+      businessCell.textContent = fundingRequest.business_name;
+      row.appendChild(businessCell);
+
+      const poolCell = document.createElement("td");
+      poolCell.textContent = nameFor(state.pools, fundingRequest.pool_id);
+      row.appendChild(poolCell);
+
+      const amountCell = document.createElement("td");
+      amountCell.className = "nowrap";
+      amountCell.textContent = `${dropsToXrp(fundingRequest.amount_drops)} XRP`;
+      amountCell.title = `${fundingRequest.amount_drops} drops`;
+      row.appendChild(amountCell);
+
+      const statusCell = document.createElement("td");
+      const statusSpan = document.createElement("span");
+      statusSpan.className = fundingRequest.status === "funded" ? "approved" : "pending_verification";
+      statusSpan.textContent = fundingRequest.status;
+      statusCell.appendChild(statusSpan);
+      row.appendChild(statusCell);
+
+      row.appendChild(buildRequestActionCell(fundingRequest));
+      body.appendChild(row);
+    }
+  }
+
   async function refreshStatus() {
     const dot = document.getElementById("xrpl-dot");
     const text = document.getElementById("xrpl-indicator-text");
@@ -248,12 +394,24 @@
       amount_drops: xrpToDrops(form.get("amount_xrp")),
     }), refreshIntents);
 
+    wireForm("request-form", "request-status", "/api/funding-requests", (form) => ({
+      business_name: form.get("business_name"),
+      pool_id: Number(form.get("pool_id")),
+      amount_drops: xrpToDrops(form.get("amount_xrp")),
+      expected_payment_date: form.get("expected_payment_date"),
+      xrpl_address: form.get("xrpl_address"),
+    }), refreshRequests);
+
     document.getElementById("refresh").addEventListener("click", () => {
       refreshIntents().catch((error) => setStatus(document.getElementById("global-status"), error.message, true));
     });
 
+    document.getElementById("refresh-requests").addEventListener("click", () => {
+      refreshRequests().catch((error) => setStatus(document.getElementById("global-status"), error.message, true));
+    });
+
     await Promise.all([refreshStatus(), refreshInvestorsAndPools()]);
-    await refreshIntents();
+    await Promise.all([refreshIntents(), refreshRequests()]);
   }
 
   document.addEventListener("DOMContentLoaded", () => {

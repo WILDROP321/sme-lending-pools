@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
-  <title>Flow — XRPL Devnet deposits</title>
+  <title>Flow — XRPL Devnet deposits and disbursements</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='devnet.css') }}">
   <script defer src="{{ url_for('static', filename='devnet.js') }}"></script>
@@ -22,7 +22,7 @@
     <div class="heading">
       <div>
         <h1>XRPL Devnet deposits</h1>
-        <p>Real XRP Ledger Devnet transactions, independently verified against the chain itself before a contribution intent is marked funded. Test funds only — nothing here moves real value.</p>
+        <p>Real XRP Ledger Devnet transactions, independently verified against the chain itself before a contribution intent or funding request is marked funded. Test funds only — nothing here moves real value.</p>
       </div>
     </div>
 
@@ -77,6 +77,39 @@
             <label>Amount (XRP)<input name="amount_xrp" type="number" min="0.000001" step="0.000001" required placeholder="1"></label>
             <button class="primary full">Create intent</button>
             <p class="form-status" id="intent-status" role="status"></p>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-heading"><h2>Funding requests</h2></div>
+    <div class="two-col">
+      <div>
+        <div class="section-heading">
+          <h3>SME advances</h3>
+          <button type="button" id="refresh-requests" class="subtle">Refresh</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>ID</th><th>Business</th><th>Pool</th><th>Amount</th><th>Status</th><th>Action</th></tr>
+            </thead>
+            <tbody id="requests-body"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
+          </table>
+        </div>
+        <p class="note">A request moves submitted → under review → approved through the existing review endpoint, then disbursement independently verifies a Devnet transaction from the pool's address to the business's registered address, for exactly the approved amount, before marking it funded. Disbursement is also capped at the pool's available balance: funded contributions minus what the pool has already disbursed.</p>
+      </div>
+      <div>
+        <div class="panel">
+          <h3>Submit a funding request</h3>
+          <form id="request-form">
+            <label>Business name<input name="business_name" maxlength="160" required placeholder="Demo Bakery"></label>
+            <label>Pool<select name="pool_id" id="request-pool" required></select></label>
+            <label>Amount (XRP)<input name="amount_xrp" type="number" min="0.000001" step="0.000001" required placeholder="1"></label>
+            <label>Expected payment date<input name="expected_payment_date" type="date" required></label>
+            <label>Business XRPL address (classic, r...)<input name="xrpl_address" maxlength="35" required placeholder="rXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" class="mono"></label>
+            <button class="primary full">Submit request</button>
+            <p class="form-status" id="request-status" role="status"></p>
           </form>
         </div>
       </div>

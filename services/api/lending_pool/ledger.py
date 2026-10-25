@@ -1,5 +1,6 @@
 """XRPL boundary. Read-only Devnet status, and transaction verification used by
-.deposits to reconcile a contribution intent, are wired into the Flask app.
+.deposits (investor -> pool) and .disbursements (pool -> business) to
+reconcile intents and funding requests, are wired into the Flask app.
 submit_test_payment backs the opt-in Devnet proof scripts in scripts/ only.
 See docs/LEDGER_DESIGN.md.
 """
@@ -26,17 +27,20 @@ def fetch_server_info(url):
 
 @dataclass(frozen=True)
 class IntegrationResult:
-    """What a reconciliation step needs to credit one contribution intent once."""
+    """What a reconciliation step needs to credit one record (an investor's
+    contribution intent, or an SME's funding request) exactly once.
+    reference_id is an opaque caller-supplied label, not read from the chain.
+    """
 
     tx_hash: str
     validated: bool
     amount_drops: int
-    intent_id: str
+    reference_id: str
     sender_address: str
     destination_address: str
 
 
-def _integration_result_from_tx_result(result, intent_id):
+def _integration_result_from_tx_result(result, reference_id):
     tx_json = result.get("tx_json") or {}
     if tx_json.get("TransactionType") != "Payment":
         raise ValueError(f"Expected a Payment transaction, got {tx_json.get('TransactionType')!r}.")
@@ -52,14 +56,14 @@ def _integration_result_from_tx_result(result, intent_id):
         tx_hash=result["hash"],
         validated=bool(result.get("validated")),
         amount_drops=int(delivered),
-        intent_id=intent_id,
+        reference_id=reference_id,
         sender_address=tx_json.get("Account"),
         destination_address=tx_json.get("Destination"),
     )
 
 
-def submit_test_payment(client, wallet, destination, amount_drops, intent_id):
-    """Submit one Devnet Payment tagged with intent_id and wait for validation.
+def submit_test_payment(client, wallet, destination, amount_drops, reference_id):
+    """Submit one Devnet Payment tagged with reference_id and wait for validation.
 
     Used by scripts/devnet_submit_test_payment.py; not called from the Flask app.
     """
@@ -67,18 +71,18 @@ def submit_test_payment(client, wallet, destination, amount_drops, intent_id):
         account=wallet.classic_address,
         destination=destination,
         amount=str(amount_drops),
-        memos=[Memo(memo_type=str_to_hex("intent_id"), memo_data=str_to_hex(intent_id))],
+        memos=[Memo(memo_type=str_to_hex("reference_id"), memo_data=str_to_hex(reference_id))],
     )
     response = submit_and_wait(payment, client, wallet)
-    return _integration_result_from_tx_result(response.result, intent_id)
+    return _integration_result_from_tx_result(response.result, reference_id)
 
 
-def fetch_validated_transaction(client, tx_hash, intent_id):
+def fetch_validated_transaction(client, tx_hash, reference_id):
     """Look up a transaction by hash and report whether it is validated."""
     response = client.request(Tx(transaction=tx_hash))
     if not response.is_successful():
         raise RuntimeError("XRPL server returned an unsuccessful response for this transaction hash")
-    return _integration_result_from_tx_result(response.result, intent_id)
+    return _integration_result_from_tx_result(response.result, reference_id)
 
 
 class ProcessedDeposits:

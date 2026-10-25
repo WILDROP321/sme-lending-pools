@@ -28,6 +28,8 @@ Issues #1 and #2 are assigned in GitHub. Benjamin is named as the owner of #3 an
 
    Implemented: `POST /api/contribution-intents/<id>/deposit` verifies a claimed `tx_hash` against Devnet itself (validated, sender, destination, delivered amount) before moving an intent from `pending` to `funded`. See [API.md](API.md) and [LEDGER_DESIGN.md](LEDGER_DESIGN.md).
 4. **SME funding:** add review decisions and enforce available pool balance before disbursement. Record validated ledger results before marking requests funded.
+
+   Implemented: review decisions already existed (`POST /api/funding-requests/<id>/review`). `POST /api/funding-requests/<id>/disburse` adds the money-moving half — it verifies a claimed `tx_hash` against Devnet itself (validated, pool as sender, business's registered address as destination, exact delivered amount) and checks the pool's available balance (funded contributions minus prior disbursements) before moving a request from `approved` to `funded`. See [API.md](API.md) and [LEDGER_DESIGN.md](LEDGER_DESIGN.md).
 5. **Repayment:** reconcile receipts and update balances, then build the demo story.
 
 The pool records in the starter are application-level groups of capital. They do not create an XRPL AMM or any native lending object. Benjamin's first design task is to establish which ledger primitives and Devnet features fit this product before implementing custody, shares, or transfers.
