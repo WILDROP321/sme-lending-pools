@@ -25,15 +25,16 @@ def balances(client):
     return {v['pool']:v for v in client.get('/api/mock-vaults').json['vaults']}
 
 
-def test_opening_balances_are_twice_initial_decided_and_do_not_reseed(app, client):
+def test_opening_balances_are_one_million_and_do_not_reseed(app, client):
     from lending_pool.db import init_db
     with app.app_context():
-        for row in get_db().execute('SELECT pool,sum(decided_disbursement_cents)*2 amount FROM mock_companies WHERE pool!=\'Decline\' GROUP BY pool'):
-            assert balances(client)[row['pool']]['balance_cents'] == row['amount']
+        assert all(v['opening_balance_cents']==100000000 for v in balances(client).values())
         before = balances(client)
         pending(client)
         init_db()
-        assert balances(client) == before
+        after=balances(client)
+        for pool in before:
+            assert after[pool]['balance_cents']==before[pool]['balance_cents']
 
 
 def test_mock_deposit_is_persistent_idempotent_and_rejects_reference_reuse(client):
@@ -116,6 +117,28 @@ def test_submission_automatically_funds_and_returns_certificate(client):
     assert c['status'] == 'approved'
     v=balances(client)['Safe']
     assert v['total_assets_cents'] == before-80000
-    assert v['assets_on_loan_cents'] == 80000
-    assert v['available_withdrawal_cents'] == before-80000
+    assert v['assets_on_loan_cents'] == 0
+    assert v['available_withdrawal_cents'] == 0
     assert client.get(f"/api/mock-vaults/certificates/{c['id']}").status_code == 200
+
+
+def test_deposits_are_invested_principal_and_earnings_follow_pool_rates(app,client):
+    from datetime import datetime,timezone,timedelta
+    from lending_pool.mock_vaults import investment_earnings
+    now=datetime.now(timezone.utc)
+    for pool,bps in [('Safe',500),('Medium',1000),('Risky',2000)]:
+        tx=client.post(f'/api/mock-vaults/{pool}/deposits',json=dict(amount='200',request_key=str(uuid4()))).json['transaction']
+        v=balances(client)[pool]
+        assert v['assets_on_loan_cents']==20000
+        assert v['annual_rate_bps']==bps
+        assert v['available_withdrawal_cents']==0
+        old={**tx,'created_at':(now-timedelta(days=365)).isoformat()}
+        assert investment_earnings([old],bps,now)==20000*bps//10000
+        assert investment_earnings([{**tx,'created_at':(now+timedelta(days=1)).isoformat()}],bps,now)==0
+    with app.app_context():
+        db=get_db()
+        db.execute("UPDATE mock_vault_transactions SET created_at=? WHERE pool='Safe'",((now-timedelta(days=365)).isoformat(),))
+        db.execute("UPDATE mock_vaults SET balance_cents=500 WHERE pool='Safe'");db.commit()
+    v=balances(client)['Safe']
+    assert v['earned_cents']>=1000
+    assert v['available_withdrawal_cents']==500

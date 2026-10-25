@@ -1,5 +1,6 @@
 """Atomic mock deposits, approvals and permanent certificate snapshots."""
-from datetime import datetime
+from datetime import datetime, timezone
+from decimal import Decimal, ROUND_DOWN
 import json
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
@@ -32,17 +33,33 @@ def transactions(company_id=None):
     return rows
 
 
+def investment_earnings(deposits, annual_rate_bps, as_of):
+    """Simple annual mock interest, exact decimal arithmetic, rounded down to cents."""
+    earned = Decimal(0)
+    for tx in deposits:
+        deposited_at = datetime.fromisoformat(tx['created_at'].replace('Z', '+00:00'))
+        if deposited_at.tzinfo is None:
+            deposited_at = deposited_at.replace(tzinfo=timezone.utc)
+        elapsed = max(Decimal(0), Decimal(str((as_of - deposited_at).total_seconds())))
+        earned += Decimal(tx['amount_cents']) * Decimal(annual_rate_bps) * elapsed / Decimal(10000 * 365 * 86400)
+    return int(earned.quantize(Decimal('1'), rounding=ROUND_DOWN))
+
+
 @mock_vaults.get('')
 def vaults():
     rows = company_store.remote('GET', resource='mock_vaults') if company_store.hosted() else [dict(r) for r in get_db().execute('SELECT * FROM mock_vaults')]
     history = transactions()
+    as_of = datetime.now(timezone.utc)
     for row in rows:
-        row['deposited_cents'] = sum(t['amount_cents'] for t in history if t['pool']==row['pool'] and t['kind']=='deposit')
-        row['assets_on_loan_cents'] = sum(t['amount_cents'] for t in history if t['pool']==row['pool'] and t['kind']=='disbursement')
-        row['available_withdrawal_cents'] = row['balance_cents']
+        deposits = [t for t in history if t['pool']==row['pool'] and t['kind']=='deposit']
+        row['deposited_cents'] = sum(t['amount_cents'] for t in deposits)
+        row['assets_on_loan_cents'] = row['deposited_cents']
+        row['earned_cents'] = investment_earnings(deposits, row['annual_rate_bps'], as_of)
+        row['available_withdrawal_cents'] = min(row['earned_cents'], row['balance_cents'])
         row['total_assets_cents'] = row['balance_cents']
         row['disbursed_cents'] = sum(t['amount_cents'] for t in history if t['pool']==row['pool'] and t['kind']=='disbursement')
-    return jsonify(vaults=rows, transactions=history, mode='mock')
+        row['earnings_as_of'] = as_of.isoformat()
+    return jsonify(vaults=rows, transactions=history, mode='mock', investment_scope='shared_demo')
 
 
 @mock_vaults.post('/<pool>/deposits')

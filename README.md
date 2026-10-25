@@ -123,3 +123,15 @@ All these actions are a shared fictional demo. They do not require a wallet and 
 Apply `supabase/automatic_mock_funding.sql` after `mock_vaults.sql`. New requests (and edits to unfunded requests) automatically deduct their score-based decided amount and create their certificate within the database transaction. There is no manual approval step in the UI. Existing historical records are not backfilled. Requests with insufficient liquidity remain unfunded; add funds and resubmit the request. SQLite development follows the same flow in the company store.
 
 The pool displays **Total vault assets** (remaining vault cash), **Assets on loan** (recorded disbursements), and **Current available withdrawal** (remaining available cash). Deposits increase cash, while automatic funding reduces cash and increases assets on loan.
+
+## Current investor balances and earnings
+
+Apply `supabase/investor_metrics.sql` after automatic funding (SQLite migration 008). Each pool has **1,000,000 MOCKRLUSD opening capital**. Existing deposits and company transfers remain recorded and are preserved when rebasing opening capital. Current pool cash is opening capital + deposits - company disbursements.
+
+- **Total vault assets**: current pool cash.
+- **Assets on loan**: the demo investor's deposited principal in this pool, not company disbursements.
+- **Current available withdrawal**: accrued investment earnings only, capped by current pool cash. Principal is not included.
+
+Rates stored in the database are Safe **5% APR**, Medium **10% APR**, Risky **20% APR**. Simple interest accrues from each deposit's UTC timestamp using a 365-day year: deposited cents × APR × elapsed seconds / seconds per year. Earnings are summed with decimal arithmetic and rounded down to cents. Rates, deposit amounts and timestamps persist; earnings are derived from those records at read time. Deposits immediately increase invested principal and pool cash. Company funding reduces pool cash without changing invested principal. The pool page refreshes earnings every 30 seconds without resetting the deposit form. Your positions shows the same calculated figures across all pools.
+
+This prototype uses one shared mock investor account, matching its existing unauthenticated demo. All demo deposits contribute to that account's principal and earnings. These are simulated earnings, not realized on-chain returns. No earnings withdrawal transaction is implemented by displaying the availability figure.
