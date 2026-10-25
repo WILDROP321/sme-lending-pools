@@ -165,7 +165,12 @@ function renderBorrow() {
 }
 window.addEventListener('hashchange',()=>{render();window.scrollTo(0,0);});
 (async()=>{
-  if(demoMode){renderDemo();return;}
+  if(demoMode){
+    try{walletInfo=await api('/wallet');}catch{/* No authenticated session. */}
+    renderDemo();
+    if(window.GemWalletApi)for(const event of ['walletChanged','networkChanged','logout'])window.GemWalletApi.on(event,()=>disconnectWallet());
+    return;
+  }
   showAccount();
   pools=(await api('/pools')).pools;
   await render();

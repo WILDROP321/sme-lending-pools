@@ -25,9 +25,9 @@ This is a hackathon prototype. The workflows below describe what we intend to ex
 
 ## RLUSD demo home
 
-The home page now opens in an explicitly labelled, browser-local RLUSD demo. Start with 10,000 mock RLUSD, browse/search/sort pools, and simulate deposits, withdrawals, borrowing and repayments. All capital and APYs are fictional; interest does not accrue. Demo actions make no API calls and never sign or submit blockchain transactions. Reset the demo from Your positions.
+The home page now opens in an explicitly labelled, browser-local RLUSD demo. Start with 10,000 mock RLUSD, browse/search/sort pools, and simulate deposits, withdrawals, borrowing and repayments. All capital and APYs are fictional; interest does not accrue. Demo financial actions make no API calls and never sign or submit blockchain transactions. Reset the demo from Your positions.
 
-Use **Switch to ledger mode** (or `?mode=ledger#pools`) for the separate GemWallet and validated-ledger integration. No demo balance is transferred into ledger mode. This mock asset is not official Ripple RLUSD and has no monetary value.
+There is one app. Connect GemWallet in the header to verify ownership with a signed challenge. All investment and funding actions remain simulated; mock balances never become wallet funds. This mock asset is not official Ripple RLUSD and has no monetary value.
 
 ## Current ledger implementation
 

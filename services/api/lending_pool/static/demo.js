@@ -1,5 +1,5 @@
 // Local product demo only. Never calls a ledger, signs, or represents official RLUSD.
-const demoMode = new URLSearchParams(location.search).get('mode') !== 'ledger';
+const demoMode = true; // One app; legacy mode URLs also open this interface.
 const demoPools = [
   {id:'core',name:'Core Income',risk:'Lower risk',apy:4.25,total:1250000,used:650000,color:'#3478ff'},
   {id:'balanced',name:'Balanced Growth',risk:'Moderate risk',apy:6.8,total:840000,used:525000,color:'#9c91ff'},
@@ -13,14 +13,14 @@ function renderDemo(){
   const [page='pools',id]=location.hash.slice(1).split('/');
   document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('active',a.dataset.page===(page==='pool'?'pools':page)));
   $('network-label').textContent='Flow markets · RLUSD demo';
-  $('network-status').innerHTML='<div class="demo-disclosure"><span>DEMO</span> Mock RLUSD · fictional balances and illustrative APYs · no blockchain transactions. <a href="?mode=ledger#pools">Switch to ledger mode ↗</a></div>';
-  $('account').innerHTML='<button id="demo-start" class="demo-start">Your demo wallet ↗</button>';
-  $('demo-start').onclick=()=>location.hash='portfolio';
+  $('network-status').innerHTML='<div class="demo-disclosure"><span>DEMO</span> Mock RLUSD · fictional balances and illustrative APYs · no blockchain transactions.</div>';
+  showAccount();
+  if($('connect-wallet'))$('connect-wallet').onclick=connectDemoWallet;
   if(page==='pool')return demoDetail(demoPools.find(p=>p.id===id)||demoPools[0]);
   if(page==='pools')return demoHome();
-  if(page==='workflow'){$('content').innerHTML=title('How the demo works','Every amount and action in this mode is simulated locally.')+'<div class="two-col"><article class="panel"><h2>Investor</h2><p>Start with 10,000 mock RLUSD → choose a pool → simulate a deposit → inspect your position → withdraw.</p><p>APYs are illustrative; interest does not accrue.</p></article><article class="panel"><h2>Borrower</h2><p>Simulate an advance → receive mock RLUSD → repay from the demo balance.</p><p>This shortcut has no invoice review, credit decision or signed loan agreement.</p></article></div><p class="note">The separate ledger mode retains GemWallet authentication and validated transaction checks. Demo balances never enter it.</p>';return;}
+  if(page==='workflow'){$('content').innerHTML=title('How the demo works','Every amount and action in this mode is simulated locally.')+'<div class="two-col"><article class="panel"><h2>Investor</h2><p>Start with 10,000 mock RLUSD → choose a pool → simulate a deposit → inspect your position → withdraw.</p><p>APYs are illustrative; interest does not accrue.</p></article><article class="panel"><h2>Borrower</h2><p>Simulate an advance → receive mock RLUSD → repay from the demo balance.</p><p>This shortcut has no invoice review, credit decision or signed loan agreement.</p></article></div><p class="note">Connect GemWallet to verify wallet ownership in this app. All investment and funding actions remain simulated; mock balances are separate from your wallet funds.</p>';return;}
   if(page==='activity'||page==='applications'){$('content').innerHTML=title(page==='activity'?'Demo activity':'Demo applications','Local simulation only. No transaction hashes, explorer proofs or real applications.')+demoState.history.map(h=>`<article class="panel">${escape(h)}</article>`).reverse().join('')+(!demoState.history.length?'<div class="empty">No demo activity yet.</div>':'');return;}
-  $('content').innerHTML=title(page==='borrow'?'Try a mock advance':'Your demo positions','Stored only in this browser. No real RLUSD or wallet connection.')+`<div class="stats">${metric('Demo wallet',demoNumber(demoState.cash/100),'mock RLUSD')}${metric('Deposited',demoNumber(Object.values(demoState.holdings).reduce((a,b)=>a+b,0)/100),'mock RLUSD')}${metric('Demo loan',demoNumber(demoState.loan/100),'mock RLUSD')}</div><div class="two-col"><article class="panel"><h2>Simulate borrowing</h2><p class="muted">Maximum 5,000 mock RLUSD outstanding. No interest or underwriting in this demo.</p>${demoForm('borrow')}</article><article class="panel"><h2>Repay the mock advance</h2>${demoForm('repay')}</article></div><button id="reset-demo">Reset demo balance and history</button><p id="demo-feedback" role="status"></p>`;
+  $('content').innerHTML=title(page==='borrow'?'Try a mock advance':'Your demo positions','Stored only in this browser. No real RLUSD. Connecting GemWallet verifies ownership only.')+`<div class="stats">${metric('Demo wallet',demoNumber(demoState.cash/100),'mock RLUSD')}${metric('Deposited',demoNumber(Object.values(demoState.holdings).reduce((a,b)=>a+b,0)/100),'mock RLUSD')}${metric('Demo loan',demoNumber(demoState.loan/100),'mock RLUSD')}</div><div class="two-col"><article class="panel"><h2>Simulate borrowing</h2><p class="muted">Maximum 5,000 mock RLUSD outstanding. No interest or underwriting in this demo.</p>${demoForm('borrow')}</article><article class="panel"><h2>Repay the mock advance</h2>${demoForm('repay')}</article></div><button id="reset-demo">Reset demo balance and history</button><p id="demo-feedback" role="status"></p>`;
   bindDemo();$('reset-demo').onclick=()=>{demoState=demoInitial();saveDemo();renderDemo();};
 }
 function demoHome(){
@@ -43,3 +43,11 @@ function bindDemo(){document.querySelectorAll('.demo-action').forEach(f=>f.onsub
   if(a==='deposit'){demoState.cash-=amount;demoState.holdings[p]+=amount;}if(a==='withdraw'){demoState.cash+=amount;demoState.holdings[p]-=amount;}if(a==='borrow'){demoState.cash+=amount;demoState.loan+=amount;}if(a==='repay'){demoState.cash-=amount;demoState.loan-=amount;}
   demoState.history.push(`Simulated ${a}: ${demoNumber(amount/100)} mock RLUSD${p?' · '+p:''}`);saveDemo();renderDemo();message('demo-feedback','Demo updated. No blockchain transaction occurred.','success');
 });}
+
+async function connectDemoWallet(){
+  try {
+    network=await api('/status');
+    await connectWallet();
+    if(walletInfo)message('global-status','GemWallet ownership verified. Demo balances remain fictional; no funds were moved.','success');
+  } catch(error){message('global-status',error.message,'error');}
+}
