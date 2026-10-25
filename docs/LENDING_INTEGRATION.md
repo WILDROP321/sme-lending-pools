@@ -1,5 +1,11 @@
 # RLUSD ledger integration and workflow
 
+## Browser-local demo mode
+
+At Gabriel’s request, the UI defaults to a labelled RLUSD mock-up. Fictional pool totals and illustrative APYs are shown in the reference-inspired Earn directory. Search, risk filtering, APY/name sorting and grid/list views work locally. A demo wallet starts at 10,000 mock RLUSD. Deposit/withdraw and borrow/repay actions use integer cents and browser localStorage, enforce available balances and a 5,000 mock RLUSD loan limit, and never call financial APIs. No interest accrues. Applications in this mode are not real underwriting requests.
+
+Open `?mode=ledger#pools` for the unchanged ledger mode. Mock data never changes ledger balances. This simulation is not a self-issued on-chain asset and requires no GemWallet signature.
+
 ## Current evidence — 24 October 2026
 
 Live read-only RPC checks (approximately 01:10 UTC on 25 October) found:

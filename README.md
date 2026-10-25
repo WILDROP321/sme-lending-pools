@@ -23,7 +23,13 @@ In our proposed experience, a business submits an eligible future payment for re
 
 This is a hackathon prototype. The workflows below describe what we intend to explore; they are not claims of implemented features or a live lending service.
 
-## Current implementation
+## RLUSD demo home
+
+The home page now opens in an explicitly labelled, browser-local RLUSD demo. Start with 10,000 mock RLUSD, browse/search/sort pools, and simulate deposits, withdrawals, borrowing and repayments. All capital and APYs are fictional; interest does not accrue. Demo actions make no API calls and never sign or submit blockchain transactions. Reset the demo from Your positions.
+
+Use **Switch to ledger mode** (or `?mode=ledger#pools`) for the separate GemWallet and validated-ledger integration. No demo balance is transferred into ledger mode. This mock asset is not official Ripple RLUSD and has no monetary value.
+
+## Current ledger implementation
 
 The Flask UI reads validated XRPL data, authenticates wallet ownership through GemWallet signatures, and prepares RLUSD VaultDeposit, VaultWithdraw, TrustSet and LoanPay transactions for wallet signing. Only validated `tesSUCCESS` results are confirmed. Historical simulated balances are never imported into live positions.
 

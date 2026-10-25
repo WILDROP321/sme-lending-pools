@@ -5,6 +5,7 @@
   <meta name="color-scheme" content="dark"><title>Flow — RLUSD lending</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <script defer src="{{ url_for('static', filename='vendor/gemwallet-api-3.8.0.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='demo.js') }}"></script>
   <script defer src="{{ url_for('static', filename='app.js') }}"></script>
 </head>
 <body>
@@ -19,7 +20,7 @@
       <a href="#activity" data-page="activity">↔ &nbsp; Transactions</a>
       <a href="#workflow" data-page="workflow">◎ &nbsp; How it works</a>
     </nav>
-    <div class="sidebar-note"><strong>Verifiable by design.</strong><p>Balances come from validated ledgers. Every confirmed action has a transaction hash.</p><a href="https://xrpl.org/resources/dev-tools/xrp-faucets" target="_blank" rel="noopener">Official network resources ↗</a></div>
+    <div class="sidebar-note"><strong>Verifiable by design.</strong><p>Demo balances are fictional. Switch to ledger mode for validated balances and wallet signing.</p><a href="https://xrpl.org/resources/dev-tools/xrp-faucets" target="_blank" rel="noopener">Official network resources ↗</a></div>
   </aside>
   <div class="app-shell">
     <header class="topbar"><span id="network-label" class="muted">Checking ledger connection…</span><div id="account"><button id="connect-wallet">Connect GemWallet</button></div></header>

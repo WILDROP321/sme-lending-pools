@@ -59,6 +59,7 @@ async function refreshNetwork(){
   $('refresh-network').onclick=async()=>{try{await refreshNetwork();await render();}catch(e){message('global-status',e.message,'error');}};
 }
 async function render(){
+  if(demoMode){renderDemo();return;}
   const version=++renderVersion;
   const [page='pools',id]=location.hash.slice(1).split('/');
   document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('active',a.dataset.page===(page==='pool'?'pools':page)));
@@ -163,8 +164,9 @@ function renderBorrow() {
   };
 }
 window.addEventListener('hashchange',()=>{render();window.scrollTo(0,0);});
-showAccount();
 (async()=>{
+  if(demoMode){renderDemo();return;}
+  showAccount();
   pools=(await api('/pools')).pools;
   await render();
   await refreshNetwork();
