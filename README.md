@@ -135,3 +135,9 @@ Apply `supabase/investor_metrics.sql` after automatic funding (SQLite migration 
 Rates stored in the database are Safe **5% APR**, Medium **10% APR**, Risky **20% APR**. Simple interest accrues from each deposit's UTC timestamp using a 365-day year: deposited cents × APR × elapsed seconds / seconds per year. Earnings are summed with decimal arithmetic and rounded down to cents. Rates, deposit amounts and timestamps persist; earnings are derived from those records at read time. Deposits immediately increase invested principal and pool cash. Company funding reduces pool cash without changing invested principal. The pool page refreshes earnings every 30 seconds without resetting the deposit form. Your positions shows the same calculated figures across all pools.
 
 This prototype uses one shared mock investor account, matching its existing unauthenticated demo. All demo deposits contribute to that account's principal and earnings. These are simulated earnings, not realized on-chain returns. No earnings withdrawal transaction is implemented by displaying the availability figure.
+
+### Existing company funding reconciliation
+
+The 41 eligible initial mock companies are now funded in Supabase using the same atomic approval operation as new applications. Each has one disbursement receipt and certificate; declined companies receive no funds. `supabase/reconcile_existing_companies.sql` records this explicitly authorized one-time operation and is not run at startup. Replays skip approved companies.
+
+Pool cash follows opening capital (1,000,000 MOCKRLUSD) + investor deposits − funded company disbursements. Investor principal remains the sum of deposits; company funding does not reduce it. Available withdrawal contains accrued interest only, capped by pool cash.

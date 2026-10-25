@@ -142,3 +142,27 @@ def test_deposits_are_invested_principal_and_earnings_follow_pool_rates(app,clie
     v=balances(client)['Safe']
     assert v['earned_cents']>=1000
     assert v['available_withdrawal_cents']==500
+
+
+def test_existing_company_reconciliation_preserves_deposits_and_cannot_double_charge(app, client):
+    from lending_pool.mock_vaults import local_approve
+    client.post('/api/mock-vaults/Medium/deposits', json=dict(amount='4000', request_key=str(uuid4())))
+    with app.app_context():
+        db = get_db()
+        companies = [dict(r) for r in db.execute("SELECT * FROM mock_companies WHERE pool != 'Decline' ORDER BY id")]
+        with db:
+            for company in companies:
+                local_approve(company['id'], db)
+        first = balances(client)
+        for pool, vault in first.items():
+            disbursed = sum(c['decided_disbursement_cents'] for c in companies if c['pool'] == pool)
+            deposited = 400000 if pool == 'Medium' else 0
+            assert vault['total_assets_cents'] == 100000000 + deposited - disbursed
+            assert vault['disbursed_cents'] == disbursed
+            assert vault['assets_on_loan_cents'] == deposited
+            assert vault['available_withdrawal_cents'] == 0
+        with db:
+            for company in companies:
+                local_approve(company['id'], db)
+        assert {p:v['balance_cents'] for p,v in balances(client).items()} == {p:v['balance_cents'] for p,v in first.items()}
+        assert all(client.get(f"/api/mock-vaults/certificates/{c['id']}").status_code == 200 for c in companies)
