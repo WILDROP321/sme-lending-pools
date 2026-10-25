@@ -107,7 +107,7 @@ function renderPool(p,v,companies=[],history=[]){
 }
 function fundingActions(c){
   if(c.status==='approved')return `<a class="document-link" href="/api/mock-vaults/certificates/${c.id}" target="_blank" rel="noopener">Certificate ↗</a>`;
-  return `${c.pool==='Decline'||c.status==='declined'?'<span class="caption">Declined</span>':'<span class="caption">Insufficient pool liquidity</span>'} <a class="document-link" href="#borrow/${c.id}">Edit</a>`;
+  return `${c.pool==='Decline'||c.status==='declined'?'<span class="caption">Declined</span>':c.source==='seed'?'<span class="caption">Sample company record</span>':'<span class="caption">Insufficient pool liquidity</span>'} <a class="document-link" href="#borrow/${c.id}">Edit</a>`;
 }
 
 async function runAction(payload,statusId,form){
