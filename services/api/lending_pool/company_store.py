@@ -49,7 +49,8 @@ def save_record(fields, record_id=None):
         rows = remote('POST' if record_id is None else 'PATCH', record_id=record_id, payload=fields)
         if not rows:
             abort(404, description='Company not found.')
-        return rows[0]
+        # Database triggers can fund a request before INSERT RETURNING is materialized.
+        return remote('GET', record_id=rows[0]['id'])[0]
     db = get_db()
     with db:
         if record_id is not None:
@@ -65,6 +66,14 @@ def save_record(fields, record_id=None):
         else:
             assignments = ', '.join(f'{name} = ?' for name in fields)
             db.execute(f'UPDATE mock_companies SET {assignments} WHERE id = ?', (*fields.values(), record_id))
+        from .mock_vaults import local_approve
+        from werkzeug.exceptions import HTTPException
+        try:
+            local_approve(record_id, db)
+        except HTTPException as error:
+            if error.code != 409 or error.description != 'Insufficient mock vault assets':
+                raise
+
     row = db.execute('SELECT * FROM mock_companies WHERE id = ?', (record_id,)).fetchone()
     if row is None:
         abort(404, description='Company not found.')

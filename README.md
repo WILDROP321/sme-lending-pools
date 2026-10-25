@@ -117,3 +117,9 @@ The investment views now use mock vault accounts in Supabase, labelled **Mock va
 - Certificate: `GET /api/mock-vaults/certificates/<company_id>` is available only after successful approval. The printable HTML certificate includes the transaction reference, source pool, recipient company, approved transfer, invoice debtor/start/due dates and repayment terms. Use **Print / Save as PDF** to export it. Repayment is the full requested amount due on the invoice date; the transferred amount is the score-based advance. The certificate clearly identifies the transaction as simulated.
 
 All these actions are a shared fictional demo. They do not require a wallet and do not transfer real currency, move on-chain tokens, or issue legally binding agreements. Native wallet and lending endpoints remain separate from mock accounting.
+
+## Automatic mock funding
+
+Apply `supabase/automatic_mock_funding.sql` after `mock_vaults.sql`. New requests (and edits to unfunded requests) automatically deduct their score-based decided amount and create their certificate within the database transaction. There is no manual approval step in the UI. Existing historical records are not backfilled. Requests with insufficient liquidity remain unfunded; add funds and resubmit the request. SQLite development follows the same flow in the company store.
+
+The pool displays **Total vault assets** (remaining vault cash), **Assets on loan** (recorded disbursements), and **Current available withdrawal** (remaining available cash). Deposits increase cash, while automatic funding reduces cash and increases assets on loan.

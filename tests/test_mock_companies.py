@@ -80,8 +80,8 @@ def test_hosted_insert_omits_generated_pool_and_updates_with_patch(app, client):
     payload=dict(company_name='Hosted company',money_requested='100',debtor='Mock debtor',invoice_due='2099-01-01')
     with patch('lending_pool.company_store.httpx.request', return_value=response) as call:
         assert client.post('/api/mock-companies', json=payload).status_code == 201
-        assert call.call_args.args[0] == 'POST'
-        assert 'pool' not in call.call_args.kwargs['json']
+        assert call.call_args_list[0].args[0] == 'POST'
+        assert 'pool' not in call.call_args_list[0].kwargs['json']
         assert client.patch('/api/mock-companies/51', json=payload).status_code == 200
-        assert call.call_args.args[0] == 'PATCH'
+        assert call.call_args_list[2].args[0] == 'PATCH'
         assert call.call_args.kwargs['params']['id'] == 'eq.51'

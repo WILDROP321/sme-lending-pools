@@ -38,6 +38,9 @@ def vaults():
     history = transactions()
     for row in rows:
         row['deposited_cents'] = sum(t['amount_cents'] for t in history if t['pool']==row['pool'] and t['kind']=='deposit')
+        row['assets_on_loan_cents'] = sum(t['amount_cents'] for t in history if t['pool']==row['pool'] and t['kind']=='disbursement')
+        row['available_withdrawal_cents'] = row['balance_cents']
+        row['total_assets_cents'] = row['balance_cents']
         row['disbursed_cents'] = sum(t['amount_cents'] for t in history if t['pool']==row['pool'] and t['kind']=='disbursement')
     return jsonify(vaults=rows, transactions=history, mode='mock')
 
@@ -81,28 +84,33 @@ def approve(company_id):
         db = get_db()
         with db:
             db.execute('BEGIN IMMEDIATE')
-            c = db.execute('SELECT * FROM mock_companies WHERE id=?', (company_id,)).fetchone()
-            if c is None:
-                abort(404, description='Company not found.')
-            previous = transactions(company_id)
-            if previous:
-                return jsonify(transaction=previous[0], certificate_url=f'/api/mock-vaults/certificates/{company_id}', mode='mock')
-            if c['status'] != 'pending' or c['pool'] == 'Decline' or c['decided_disbursement_cents'] <= 0:
-                abort(409, description='Company is not eligible for approval')
-            if c['invoice_due'] <= datetime.now(ZoneInfo('America/New_York')).date().isoformat():
-                abort(409, description='Invoice is past due')
-            amount = c['decided_disbursement_cents']
-            updated = db.execute('UPDATE mock_vaults SET balance_cents=balance_cents-? WHERE pool=? AND balance_cents>=?', (amount,c['pool'],amount))
-            if updated.rowcount != 1:
-                abort(409, description='Insufficient mock vault assets')
-            balance = db.execute('SELECT balance_cents FROM mock_vaults WHERE pool=?',(c['pool'],)).fetchone()[0]
-            snapshot = {k:c[k] for k in ('company_name','debtor','from_date','invoice_due','risk_factor','pool')}
-            snapshot.update(requested_cents=c['money_requested_cents'], repayment_cents=c['money_requested_cents'], disbursed_cents=amount,currency='MOCKRLUSD',mode='mock')
-            tx_id = str(uuid4())
-            db.execute('INSERT INTO mock_vault_transactions(id,pool,kind,amount_cents,balance_after_cents,company_id,certificate) VALUES (?,?,\'disbursement\',?,?,?,?)', (tx_id,c['pool'],amount,balance,company_id,json.dumps(snapshot)))
-            db.execute("UPDATE mock_companies SET status='approved' WHERE id=?",(company_id,))
-            tx = transactions(company_id)[0]
+            tx = local_approve(company_id, db)
     return jsonify(transaction=tx, certificate_url=f'/api/mock-vaults/certificates/{company_id}', mode='mock')
+
+
+def local_approve(company_id, db):
+    c = db.execute('SELECT * FROM mock_companies WHERE id=?', (company_id,)).fetchone()
+    if c is None:
+        abort(404, description='Company not found.')
+    previous = transactions(company_id)
+    if previous:
+        return previous[0]
+    if c['status'] != 'pending' or c['pool'] == 'Decline' or c['decided_disbursement_cents'] <= 0:
+        abort(409, description='Company is not eligible for approval')
+    if c['invoice_due'] <= datetime.now(ZoneInfo('America/New_York')).date().isoformat():
+        abort(409, description='Invoice is past due')
+    amount = c['decided_disbursement_cents']
+    updated = db.execute('UPDATE mock_vaults SET balance_cents=balance_cents-? WHERE pool=? AND balance_cents>=?', (amount,c['pool'],amount))
+    if updated.rowcount != 1:
+        abort(409, description='Insufficient mock vault assets')
+    balance = db.execute('SELECT balance_cents FROM mock_vaults WHERE pool=?',(c['pool'],)).fetchone()[0]
+    snapshot = {k:c[k] for k in ('company_name','debtor','from_date','invoice_due','risk_factor','pool')}
+    snapshot.update(requested_cents=c['money_requested_cents'], repayment_cents=c['money_requested_cents'], disbursed_cents=amount,currency='MOCKRLUSD',mode='mock')
+    tx_id = str(uuid4())
+    db.execute('INSERT INTO mock_vault_transactions(id,pool,kind,amount_cents,balance_after_cents,company_id,certificate) VALUES (?,?,\'disbursement\',?,?,?,?)', (tx_id,c['pool'],amount,balance,company_id,json.dumps(snapshot)))
+    db.execute("UPDATE mock_companies SET status='approved' WHERE id=?",(company_id,))
+    tx = transactions(company_id)[0]
+    return tx
 
 
 @mock_vaults.get('/certificates/<int:company_id>')

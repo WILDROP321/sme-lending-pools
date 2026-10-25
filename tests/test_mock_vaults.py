@@ -1,11 +1,22 @@
 from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
+from unittest.mock import patch
 
 from lending_pool.db import get_db
 
 
 def pending(client, amount='1000'):
-    response = client.post('/api/mock-companies', json=dict(company_name='Certificate Company', money_requested=amount, debtor='Invoice Debtor', invoice_due='2099-01-01'))
+    # Create a queued application with no liquidity, then restore balances for
+    # explicit replay/concurrency tests of the underlying funding operation.
+    with client.application.app_context():
+        db=get_db()
+        saved=[tuple(r) for r in db.execute('SELECT pool,balance_cents FROM mock_vaults')]
+        db.execute('UPDATE mock_vaults SET balance_cents=0');db.commit()
+    with patch('lending_pool.mock_companies.secrets.randbelow',return_value=45):
+        response = client.post('/api/mock-companies', json=dict(company_name='Certificate Company', money_requested=amount, debtor='Invoice Debtor', invoice_due='2099-01-01'))
+    with client.application.app_context():
+        db=get_db()
+        db.executemany('UPDATE mock_vaults SET balance_cents=? WHERE pool=?',[(amount,pool) for pool,amount in saved]);db.commit()
     assert response.status_code == 201
     return response.json['company']
 
@@ -94,3 +105,17 @@ def test_concurrent_approvals_cannot_overdraw(app,client):
     assert sorted(codes) == [200,409]
     assert balances(client)['Safe']['balance_cents'] == 25000
     assert len(client.get('/api/mock-vaults').json['transactions']) == 1
+
+
+def test_submission_automatically_funds_and_returns_certificate(client):
+    before=balances(client)['Safe']['balance_cents']
+    with patch('lending_pool.mock_companies.secrets.randbelow',return_value=45):
+        response=client.post('/api/mock-companies',json=dict(company_name='Automatic Company',money_requested='1000',debtor='Invoice Debtor',invoice_due='2099-01-01'))
+    assert response.status_code == 201
+    c=response.json['company']
+    assert c['status'] == 'approved'
+    v=balances(client)['Safe']
+    assert v['total_assets_cents'] == before-80000
+    assert v['assets_on_loan_cents'] == 80000
+    assert v['available_withdrawal_cents'] == before-80000
+    assert client.get(f"/api/mock-vaults/certificates/{c['id']}").status_code == 200
