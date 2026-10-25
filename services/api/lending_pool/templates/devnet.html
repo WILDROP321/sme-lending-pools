@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Flow — XRPL Devnet deposits</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='devnet.css') }}">
+  <script defer src="{{ url_for('static', filename='devnet.js') }}"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Flow home"><span class="brand-mark">f</span>flow<span class="network">XRPL DEVNET</span></a>
+    <nav aria-label="Main navigation">
+      <a href="/">Market</a>
+      <a href="/devnet" class="active">XRPL Devnet</a>
+    </nav>
+    <div id="xrpl-indicator" class="chip"><span class="status-dot" id="xrpl-dot"></span><span id="xrpl-indicator-text">Checking Devnet…</span></div>
+  </header>
+  <main>
+    <div class="heading">
+      <div>
+        <h1>XRPL Devnet deposits</h1>
+        <p>Real XRP Ledger Devnet transactions, independently verified against the chain itself before a contribution intent is marked funded. Test funds only — nothing here moves real value.</p>
+      </div>
+    </div>
+
+    <div id="global-status" role="status" aria-live="polite"></div>
+
+    <section class="stats" id="network-stats">
+      <div class="stat"><span class="stat-label">Network</span><span class="stat-value" id="stat-network">—</span></div>
+      <div class="stat"><span class="stat-label">Server state</span><span class="stat-value" id="stat-state">—</span></div>
+      <div class="stat"><span class="stat-label">Validated ledger</span><span class="stat-value" id="stat-ledger">—</span></div>
+    </section>
+
+    <div class="two-col">
+      <div>
+        <div class="section-heading">
+          <h2>Contribution intents</h2>
+          <button type="button" id="refresh" class="subtle">Refresh</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>ID</th><th>Investor</th><th>Pool</th><th>Amount</th><th>Status</th><th>Confirm deposit</th></tr>
+            </thead>
+            <tbody id="intents-body"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
+          </table>
+        </div>
+        <p class="note">Confirming looks the transaction up on Devnet itself: sender, destination, delivered amount, and validation are all checked server-side — a claimed hash is never enough on its own. <a href="https://devnet.xrpl.org/" target="_blank" rel="noopener">Inspect any hash on the Devnet explorer ↗</a></p>
+      </div>
+      <div>
+        <div class="panel">
+          <h3>Register an investor</h3>
+          <form id="investor-form">
+            <label>Name<input name="name" maxlength="120" required placeholder="Demo Investor"></label>
+            <label>XRPL address (classic, r...)<input name="xrpl_address" maxlength="35" required placeholder="rXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" class="mono"></label>
+            <button class="primary full">Register investor</button>
+            <p class="form-status" id="investor-status" role="status"></p>
+          </form>
+        </div>
+        <div class="panel">
+          <h3>Register a pool</h3>
+          <form id="pool-form">
+            <label>Name<input name="name" maxlength="120" required placeholder="Working Capital"></label>
+            <label>XRPL address (classic, r...)<input name="xrpl_address" maxlength="35" required placeholder="rXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" class="mono"></label>
+            <button class="primary full">Register pool</button>
+            <p class="form-status" id="pool-status" role="status"></p>
+          </form>
+        </div>
+        <div class="panel">
+          <h3>Create a contribution intent</h3>
+          <form id="intent-form">
+            <label>Investor<select name="investor_id" id="intent-investor" required></select></label>
+            <label>Pool<select name="pool_id" id="intent-pool" required></select></label>
+            <label>Amount (XRP)<input name="amount_xrp" type="number" min="0.000001" step="0.000001" required placeholder="1"></label>
+            <button class="primary full">Create intent</button>
+            <p class="form-status" id="intent-status" role="status"></p>
+          </form>
+        </div>
+      </div>
+    </div>
+  </main>
+  <footer><span><span class="status-dot"></span> XRPL Devnet — real validated transactions, test funds only</span><span>Not production custody · No mainnet funds move</span></footer>
+</body>
+</html>

@@ -139,7 +139,11 @@ def list_contribution_intents():
         parameters.append(value)
     where = " WHERE " + " AND ".join(clauses) if clauses else ""
     rows = get_db().execute(
-        "SELECT * FROM contribution_intents" + where + " ORDER BY id", parameters
+        """SELECT contribution_intents.*, ledger_receipts.tx_hash AS tx_hash
+           FROM contribution_intents
+           LEFT JOIN ledger_receipts ON ledger_receipts.contribution_intent_id = contribution_intents.id"""
+        + where + " ORDER BY contribution_intents.id",
+        parameters,
     ).fetchall()
     return jsonify(contribution_intents=[dict(row) for row in rows])
 
@@ -165,9 +169,13 @@ def create_contribution_intent():
 
 @api.get("/contribution-intents/<int:intent_id>")
 def get_contribution_intent(intent_id):
-    return jsonify(contribution_intent=record_or_404(
-        "contribution_intents", intent_id, "Contribution intent"
-    ))
+    record = record_or_404("contribution_intents", intent_id, "Contribution intent")
+    receipt = get_db().execute(
+        """SELECT tx_hash, amount_drops, sender_address, destination_address, created_at
+           FROM ledger_receipts WHERE contribution_intent_id = ?""",
+        (intent_id,),
+    ).fetchone()
+    return jsonify(contribution_intent=record, ledger_receipt=dict(receipt) if receipt else None)
 
 
 @api.post("/contribution-intents/<int:intent_id>/deposit")
