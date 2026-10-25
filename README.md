@@ -92,3 +92,9 @@ docs/                    API contract and team task plan
 Read [CONTRIBUTING.md](CONTRIBUTING.md). Pick your assigned GitHub issue, create a feature branch, and open a pull request into `main`. Ask another teammate to review. Agree on changes to shared endpoint fields in [docs/API.md](docs/API.md) before integrating them.
 
 See [live integration and workflow](docs/LENDING_INTEGRATION.md) for protocol boundaries and remaining work.
+
+## Mock company funding demo
+
+Run `python -m flask init-db` to apply migration 006 and seed 50 fictional companies once. Get funded (`#borrow`) accepts company name, requested amount, debtor, and invoice due date without a wallet. SQLite persists applications through `GET/POST /api/mock-companies`; Applications (`#applications`) lists and filters them. Pool detail pages display matching mock companies separately from ledger assets.
+
+Scores are random integers from 35–90 for new requests. Ranges are 0–19 Decline, 20–49 Risky (Opportunity), 50–69 Medium (Balanced Growth), and 70–100 Safe (Core Income). Higher scores mean safer companies. Seed records cover all four categories. “From” is the invoice start/submission date. The decided disbursement is an illustrative requested amount × score / 100, rounded to cents; declined seed records have zero. Amounts are stored as integer cents. No mock application or estimate initiates a loan or transfers funds.
