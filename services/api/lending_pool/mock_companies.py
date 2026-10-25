@@ -22,6 +22,18 @@ def pool_for_score(score):
     return 'Safe'
 
 
+def amount_in_cents(value, field='money_requested'):
+    try:
+        amount = Decimal(str(value))
+        if not amount.is_finite() or not Decimal('0.01') <= amount <= Decimal('100000000'):
+            raise ValueError
+        if amount != amount.quantize(Decimal('0.01')):
+            raise ValueError
+        return int(amount * 100)
+    except (InvalidOperation, ValueError, TypeError):
+        abort(400, description=f'{field} must be between 0.01 and 100,000,000 with at most two decimals.')
+
+
 @mock_companies.get('')
 def list_companies():
     return jsonify(companies=company_store.list_records(), mode='mock', storage='supabase' if company_store.hosted() else 'sqlite')
@@ -33,15 +45,7 @@ def create_company(record_id=None):
     body = json_body({'company_name', 'money_requested', 'debtor', 'invoice_due'})
     company = text_field(body, 'company_name', 160)
     debtor = text_field(body, 'debtor', 160)
-    try:
-        amount = Decimal(str(body.get('money_requested')))
-        if not amount.is_finite() or not Decimal('0.01') <= amount <= Decimal('100000000'):
-            raise ValueError
-        if amount != amount.quantize(Decimal('0.01')):
-            raise ValueError
-        amount_cents = int(amount * 100)
-    except (InvalidOperation, ValueError, TypeError):
-        abort(400, description='money_requested must be between 0.01 and 100,000,000 with at most two decimals.')
+    amount_cents = amount_in_cents(body.get('money_requested'))
     try:
         due = date.fromisoformat(body.get('invoice_due', ''))
         if due <= datetime.now(ZoneInfo('America/New_York')).date():
@@ -51,7 +55,7 @@ def create_company(record_id=None):
     score = 35 + secrets.randbelow(56)
     pool = pool_for_score(score)
     decided = int((Decimal(amount_cents) * score / 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
-    fields = dict(company_name=company, risk_factor=score,
+    fields = dict(company_name=company, risk_factor=score, status='pending',
                   decided_disbursement_cents=decided, money_requested_cents=amount_cents,
                   debtor=debtor, invoice_due=due.isoformat())
     if record_id is None:
