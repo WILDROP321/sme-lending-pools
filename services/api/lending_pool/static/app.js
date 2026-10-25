@@ -6,9 +6,9 @@ const pct = n => Number(n).toFixed(2)+'%';
 const display = n => n === null || n === undefined ? '—' : escape(n);
 const poolName = id => pools.find(p=>p.id===id)?.name || id;
 let pools=[], network=null, walletInfo=null, renderVersion=0, walletBusy=false;
-async function requestJSON(url,payload) {
+async function requestJSON(url,payload,method='POST') {
   let response;
-  try { response=await fetch(url,payload===undefined?{}:payload instanceof FormData?{method:'POST',body:payload}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); }
+  try { response=await fetch(url,payload===undefined?{}:payload instanceof FormData?{method:'POST',body:payload}:{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); }
   catch { throw new Error('Cannot reach Flask. No transaction or balance has been assumed successful.'); }
   const data=await response.json();
   if(!response.ok)throw new Error(data.error?.message||`Request failed (${response.status})`);
@@ -71,7 +71,7 @@ async function render(){
       const companies=await requestJSON('/api/mock-companies');if(version!==renderVersion)return;
       renderPool(p,detail,companies.companies.filter(c=>c.pool===mockPoolForVault(p.id)));
     }else if(page==='workflow')renderWorkflow();
-    else if(page==='borrow')renderMockBorrow();
+    else if(page==='borrow')await renderMockBorrow(id,version);
     else if(page==='invoice')renderBorrow();
     else if(page==='applications')await renderApplications(version);
     else if(page==='activity')await renderActivity(version);
@@ -132,20 +132,23 @@ async function renderActivity(version){
 }
 const mockPoolForVault = id => ({core:'Safe',balanced:'Medium',opportunity:'Risky'}[id]);
 function companyTable(companies){
-  return companies.length?`<div class="table-wrap"><table class="companies-table"><thead><tr><th>Company name</th><th>Risk factor / 100</th><th>Decided disbursement</th><th>Money requested</th><th>Debtor</th><th>From</th><th>Invoice due</th><th>Pool</th></tr></thead><tbody>${companies.map(c=>`<tr><td>${escape(c.company_name)}</td><td>${c.risk_factor}</td><td>${money(c.decided_disbursement_cents)}</td><td>${money(c.money_requested_cents)}</td><td>${escape(c.debtor)}</td><td>${escape(c.from_date)}</td><td>${escape(c.invoice_due)}</td><td><span class="chip">${escape(c.pool)}</span></td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">No companies in this pool yet.</p>';
+  return companies.length?`<div class="table-wrap"><table class="companies-table"><thead><tr><th>Company name</th><th>Risk factor / 100</th><th>Decided disbursement</th><th>Money requested</th><th>Debtor</th><th>From</th><th>Invoice due</th><th>Pool</th><th></th></tr></thead><tbody>${companies.map(c=>`<tr><td>${escape(c.company_name)}</td><td>${c.risk_factor}</td><td>${money(c.decided_disbursement_cents)}</td><td>${money(c.money_requested_cents)}</td><td>${escape(c.debtor)}</td><td>${escape(c.from_date)}</td><td>${escape(c.invoice_due)}</td><td><span class="chip">${escape(c.pool)}</span></td><td><a class="document-link" href="#borrow/${c.id}">Edit</a></td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">No companies in this pool yet.</p>';
 }
 async function renderApplications(version){
   const data=await requestJSON('/api/mock-companies');if(version!==renderVersion)return;
-  $('content').innerHTML=title('Company applications','Mock companies and funding requests · amounts in MOCKRLUSD','Mock data')+`<p class="note">Scores: 0–19 Decline · 20–49 Risky · 50–69 Medium · 70–100 Safe. Higher scores indicate safer companies. Decided disbursement is a mock estimate, not a transfer.</p><div class="company-filters"><label>Pool<select id="company-pool"><option value="all">All pools</option>${['Decline','Risky','Medium','Safe'].map(p=>`<option>${p}</option>`).join('')}</select></label><a href="#borrow" class="primary">New funding request</a></div><p id="company-count" class="caption"></p><div id="companies"></div>`;
+  $('content').innerHTML=title('Company applications',`Mock companies and funding requests · amounts in MOCKRLUSD · ${data.storage==='supabase'?'Supabase connected':'Local database'}`,'Mock data')+`<p class="note">Scores: 0–19 Decline · 20–49 Risky · 50–69 Medium · 70–100 Safe. Higher scores indicate safer companies. Decided disbursement is a mock estimate, not a transfer.</p><div class="company-filters"><label>Pool<select id="company-pool"><option value="all">All pools</option>${['Decline','Risky','Medium','Safe'].map(p=>`<option>${p}</option>`).join('')}</select></label><a href="#borrow" class="primary">New funding request</a></div><p id="company-count" class="caption"></p><div id="companies"></div>`;
   const update=()=>{const rows=data.companies.filter(c=>$('company-pool').value==='all'||c.pool===$('company-pool').value);$('company-count').textContent=`${rows.length} companies`;$('companies').innerHTML=companyTable(rows);};
   $('company-pool').onchange=update;update();
 }
-function renderMockBorrow(){
+async function renderMockBorrow(id,version){
+  let existing=null;
+  if(id){const data=await requestJSON('/api/mock-companies');if(version!==renderVersion)return;existing=data.companies.find(c=>String(c.id)===id);if(!existing)throw new Error('Company not found.');}
   const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+1);
   const minDate=`${tomorrow.getFullYear()}-${String(tomorrow.getMonth()+1).padStart(2,'0')}-${String(tomorrow.getDate()).padStart(2,'0')}`;
-  $('content').innerHTML=title('Get funded','Submit a company invoice for a mock funding assessment.','Mock assessment')+`<article class="panel funding-panel"><form id="company-funding"><fieldset><div class="form-grid"><label>Name of the company<input name="company_name" required maxlength="160" placeholder="Evergreen Supply"></label><label>Money requested · MOCKRLUSD<input name="money_requested" type="number" required min="0.01" max="100000000" step="0.01" placeholder="25000"></label><label>Debtor<input name="debtor" required maxlength="160" placeholder="Company that owes the invoice"></label><label>Invoice due<input name="invoice_due" type="date" min="${minDate}" required></label></div><button type="submit" class="primary">Submit request</button></fieldset><p id="company-status" class="form-status" role="status"></p></form><p class="caption">A random mock score from 35–90 assigns your pool. Higher scores indicate safer companies. The estimated disbursement equals the requested amount × score / 100. This saves an application; no funds move.</p></article><div id="company-result" aria-live="polite"></div><a href="#applications" class="document-link">View all company applications ↗</a>`;
+  $('content').innerHTML=title(existing?'Edit funding request':'Get funded','Submit a company invoice for a mock funding assessment.','Mock assessment')+`<article class="panel funding-panel"><form id="company-funding"><fieldset><div class="form-grid"><label>Name of the company<input name="company_name" required maxlength="160" placeholder="Evergreen Supply"></label><label>Money requested · MOCKRLUSD<input name="money_requested" type="number" required min="0.01" max="100000000" step="0.01" placeholder="25000"></label><label>Debtor<input name="debtor" required maxlength="160" placeholder="Company that owes the invoice"></label><label>Invoice due<input name="invoice_due" type="date" min="${minDate}" required></label></div><button type="submit" class="primary">${existing?'Save changes':'Submit request'}</button></fieldset><p id="company-status" class="form-status" role="status"></p></form><p class="caption">A random mock score from 35–90 assigns your pool. Higher scores indicate safer companies. The estimated disbursement equals the requested amount × score / 100. This saves an application; no funds move.</p></article><div id="company-result" aria-live="polite"></div><a href="#applications" class="document-link">View all company applications ↗</a>`;
+  if(existing){const form=$('company-funding');for(const [name,value] of Object.entries({company_name:existing.company_name,money_requested:(existing.money_requested_cents/100).toFixed(2),debtor:existing.debtor,invoice_due:existing.invoice_due})){form.elements.namedItem(name).value=value;}}
   $('company-funding').onsubmit=async e=>{e.preventDefault();const form=e.target;const payload=Object.fromEntries(new FormData(form));form.querySelector('fieldset').disabled=true;message('company-status','Saving application…');
-    try{const {company:c}=await requestJSON('/api/mock-companies',payload);message('company-status','Application saved.','success');$('company-result').innerHTML=`<article class="panel"><h2>${escape(c.company_name)}</h2><div class="stats">${metric('Risk factor',c.risk_factor+' / 100')}${metric('Assigned pool',escape(c.pool))}${metric('Decided disbursement',money(c.decided_disbursement_cents),'MOCKRLUSD')}</div><p class="caption">Mock estimate saved to the database. No disbursement has occurred.</p></article>`;form.reset();}
+    try{const {company:c}=await requestJSON('/api/mock-companies'+(existing?'/'+existing.id:''),payload,existing?'PATCH':'POST');message('company-status',`Application saved${existing?' and updated':''} to the database.`,'success');$('company-result').innerHTML=`<article class="panel"><h2>${escape(c.company_name)}</h2><div class="stats">${metric('Risk factor',c.risk_factor+' / 100')}${metric('Assigned pool',escape(c.pool))}${metric('Decided disbursement',money(c.decided_disbursement_cents),'MOCKRLUSD')}</div><p class="caption">Mock estimate saved to the database. No disbursement has occurred.</p></article>`;if(existing)existing=c;else form.reset();}
     catch(error){message('company-status',error.message,'error');}finally{form.querySelector('fieldset').disabled=false;}
   };
 }

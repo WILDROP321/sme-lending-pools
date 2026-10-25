@@ -6,7 +6,7 @@ import secrets
 
 from flask import Blueprint, abort, jsonify, request
 
-from .db import get_db
+from . import company_store
 from .routes import json_body, text_field
 
 mock_companies = Blueprint('mock_companies', __name__, url_prefix='/api/mock-companies')
@@ -24,12 +24,12 @@ def pool_for_score(score):
 
 @mock_companies.get('')
 def list_companies():
-    rows = get_db().execute('SELECT * FROM mock_companies ORDER BY id DESC').fetchall()
-    return jsonify(companies=[dict(row) for row in rows], mode='mock')
+    return jsonify(companies=company_store.list_records(), mode='mock', storage='supabase' if company_store.hosted() else 'sqlite')
 
 
 @mock_companies.post('')
-def create_company():
+@mock_companies.patch('/<int:record_id>')
+def create_company(record_id=None):
     body = json_body({'company_name', 'money_requested', 'debtor', 'invoice_due'})
     company = text_field(body, 'company_name', 160)
     debtor = text_field(body, 'debtor', 160)
@@ -51,12 +51,12 @@ def create_company():
     score = 35 + secrets.randbelow(56)
     pool = pool_for_score(score)
     decided = int((Decimal(amount_cents) * score / 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
-    db = get_db()
-    with db:
-        cursor = db.execute('''INSERT INTO mock_companies
-            (company_name, risk_factor, decided_disbursement_cents, money_requested_cents,
-             debtor, from_date, invoice_due, pool, source)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'application')''',
-            (company, score, decided, amount_cents, debtor, datetime.now(ZoneInfo('America/New_York')).date().isoformat(), due.isoformat(), pool))
-    row = db.execute('SELECT * FROM mock_companies WHERE id = ?', (cursor.lastrowid,)).fetchone()
-    return jsonify(company=dict(row), mode='mock'), 201
+    fields = dict(company_name=company, risk_factor=score,
+                  decided_disbursement_cents=decided, money_requested_cents=amount_cents,
+                  debtor=debtor, invoice_due=due.isoformat())
+    if record_id is None:
+        fields.update(from_date=datetime.now(ZoneInfo('America/New_York')).date().isoformat(), source='application')
+    if not company_store.hosted():
+        fields['pool'] = pool
+    row = company_store.save_record(fields, record_id)
+    return jsonify(company=row, mode='mock', storage='supabase' if company_store.hosted() else 'sqlite'), 201 if record_id is None else 200

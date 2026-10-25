@@ -25,6 +25,9 @@ def create_app(test_config=None):
         LENDING_EXPLORER_TX_URL=os.getenv("LENDING_EXPLORER_TX_URL", ""),
         LENDING_VAULTS=json.loads(os.getenv("LENDING_VAULTS", "{}")),
         ENABLE_SIMULATION=os.getenv("ENABLE_SIMULATION", "false").lower() == "true",
+        SUPABASE_URL=os.getenv('SUPABASE_URL', ''),
+        SUPABASE_PUBLISHABLE_KEY=os.getenv('SUPABASE_PUBLISHABLE_KEY', ''),
+        FLOW_SUPABASE_API_KEY=os.getenv('FLOW_SUPABASE_API_KEY', ''),
         MAX_CONTENT_LENGTH=6 * 1024 * 1024,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
@@ -37,6 +40,8 @@ def create_app(test_config=None):
                           LENDING_RLUSD_ISSUER=deployment["issuer"],
                           LENDING_VAULTS={key: value["vault_id"] for key, value in deployment["pools"].items()})
     if test_config:
+        # Tests always use their isolated store unless explicitly testing Supabase.
+        app.config.update(SUPABASE_URL='', SUPABASE_PUBLISHABLE_KEY='', FLOW_SUPABASE_API_KEY='')
         app.config.update(test_config)
     Path(app.instance_path).mkdir(parents=True, exist_ok=True)
     if not app.config["SECRET_KEY"]:
