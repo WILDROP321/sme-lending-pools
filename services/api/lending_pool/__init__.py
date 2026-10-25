@@ -49,6 +49,10 @@ def create_app(test_config=None):
     def index():
         return render_template("index.html")
 
+    @app.get("/devnet")
+    def devnet():
+        return render_template("devnet.html")
+
     @app.errorhandler(HTTPException)
     def http_error(error):
         return jsonify(error={"code": error.code, "message": error.description}), error.code

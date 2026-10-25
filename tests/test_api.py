@@ -45,7 +45,7 @@ def test_funding_request_lifecycle_starts_submitted(client):
     record = response.json["funding_request"]
     assert record["status"] == "submitted"
     assert record["amount_drops"] == 25_000_000
-    assert client.get("/api/funding-requests").json["funding_requests"] == [record]
+    assert client.get("/api/funding-requests").json["funding_requests"] == [{**record, "tx_hash": None}]
 
 
 @pytest.mark.parametrize("overrides", [

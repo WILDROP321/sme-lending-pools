@@ -1,0 +1,7 @@
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+.tx-hash{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;color:var(--muted)}
+.deposit-form{display:flex;gap:6px;align-items:flex-start}
+.deposit-form input{margin-top:0;font-size:11px;padding:8px 9px}
+.deposit-form button{padding:8px 10px;font-size:11px;white-space:nowrap}
+.funded-badge{color:var(--accent);font-size:12px;display:block;margin-bottom:4px}
+.row-status{font-size:11px;line-height:1.5;margin-top:6px;max-width:220px}
