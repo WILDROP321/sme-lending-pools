@@ -21,7 +21,7 @@ def test_investor_and_intent_persist_without_crediting_pool(app, client, selecte
     assert intent["status"] == "pending"
     assert intent["amount_drops"] == 5_000_000
     assert client.get("/api/pools/1").json == before
-    second = create_app({"TESTING": True, "DATABASE": app.config["DATABASE"]}).test_client()
+    second = create_app({"TESTING": True, "ENABLE_SIMULATION": True, "DATABASE": app.config["DATABASE"]}).test_client()
     assert second.get("/api/investors/1").json["investor"]["name"] == "Demo Investor"
     assert second.get("/api/investors").json["investors"][0]["id"] == 1
     assert second.get("/api/contribution-intents/1").json["contribution_intent"] == intent

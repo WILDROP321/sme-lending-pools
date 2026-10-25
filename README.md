@@ -23,77 +23,41 @@ In our proposed experience, a business submits an eligible future payment for re
 
 This is a hackathon prototype. The workflows below describe what we intend to explore; they are not claims of implemented features or a live lending service.
 
-## Proposed demo flow
+## Current implementation
 
-1. **Business submits a request:** enter the expected payment amount, due date, and supporting details.
-2. **Request is reviewed:** assess eligibility and show proposed advance and repayment terms.
-3. **Pool funds the advance:** simulate allocating available pool capital to an approved request.
-4. **Business tracks progress:** view the request, advance, and expected repayment status.
-5. **Payment is reconciled:** simulate receipt of the future payment and update the pool balance.
+The Flask UI reads validated XRPL data, authenticates wallet ownership through GemWallet signatures, and prepares RLUSD VaultDeposit, VaultWithdraw, TrustSet and LoanPay transactions for wallet signing. Only validated `tesSUCCESS` results are confirmed. Historical simulated balances are never imported into live positions.
 
-## MVP scope
+**Default: standard Devnet, explicitly selected by Gabriel. Live RLUSD lending is blocked.** On 24 October 2026, standard Devnet supported native lending but no official RLUSD issuer could be verified there. Ripple documents an issuer on Testnet, where the native lending amendments were disabled. The dedicated Lending Devnet hostname was unavailable. No live deposit, loan or repayment has been submitted by this integration.
 
-- A business dashboard for submitting and tracking funding requests.
-- A pool dashboard showing available capital and funded requests.
-- A review flow with explicit approval and rejection states.
-- A simulated funding and repayment lifecycle.
-- Seeded demo data so the team can show the full experience.
-
-For the demo, use synthetic business and transaction data. Real payment integrations, custody, underwriting, pricing, and production lending requirements remain future design decisions.
-
-## Stack and current status
-
-Python 3.13, Flask, SQLite, and `xrpl-py`, configured for **XRP Ledger (XRPL) Devnet**.
-
-Implemented: a dark Flask lending app, RLUSD pool simulation, investor accounts and holdings, invoice uploads, risk classification, return calculations, and manual approval with audit history. The original XRP records, contribution intents, migration tools, and read-only Devnet status check remain available. Wallet ownership, real disbursement, repayment, and settlement are future work; local approval sends no funds.
+Pool detail pages follow the supplied dashboard reference. Missing balances and historical rates remain unavailable rather than displaying fictional data. Investor/borrower workflow and implementation limits are available in the app's **Workflow** screen and [integration documentation](docs/LENDING_INTEGRATION.md).
 
 ## Run locally
 
-Each teammate should clone the repository and create their own environment:
+Use Python 3.13:
 
 ```sh
-git clone https://github.com/WILDROP321/sme-lending-pools.git
-cd sme-lending-pools
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements-dev.txt
 cp .env.example .env
 python -m flask init-db
-python -m flask seed-demo
 python -m flask run --debug
 ```
 
-Use Python 3.13. On Windows, activate with `.venv\Scripts\activate` and copy the environment file with `copy .env.example .env`.
+Open http://127.0.0.1:5001. Existing users should back up SQLite and run `python -m flask migrate-db`. See [database instructions](docs/DATABASE.md). No seed data or private keys are needed. Keep the prototype bound to localhost and use synthetic invoice documents.
 
-Open **http://127.0.0.1:5001**. Port 5001 avoids the common macOS port 5000 conflict. The development server binds to your own machine; this unauthenticated prototype is for local development.
+Install GemWallet and select the exact configured network. The backend checks the network ID; the frontend checks the wallet WebSocket endpoint. Configure a verified official issuer and real RLUSD Vault IDs only after these exist on the chosen network. See `.env.example` and the integration guide. Never substitute a self-issued token labelled RLUSD.
 
-If you are working in the original project folder where the environment is already prepared, start with `source .venv/bin/activate` and `python -m flask run --debug`.
-
-`init-db` applies versioned migrations without deleting existing records. `seed-demo` adds a demo pool and investor when their tables are empty. SQLite data lives under `services/api/instance/` and is ignored by Git. Each teammate has independent demo data.
-
-**Already using the original starter?** Back up your database, then run `python -m flask migrate-db` before starting the updated server. See [docs/DATABASE.md](docs/DATABASE.md) for backup and migration instructions. Pending migrations run together in a transaction and roll back if they fail.
-
-The app works locally without XRPL access. Only `/api/xrpl/status` requires an internet connection. Keep `XRPL_JSON_RPC_URL` on Devnet. No credentials or wallet seed are needed for this starter.
-
-## Check the setup
+## Validation
 
 ```sh
 python -m pytest -q
-python -m pip check
-curl http://127.0.0.1:5001/api/health
-curl http://127.0.0.1:5001/api/pools
-curl http://127.0.0.1:5001/api/xrpl/status
+python scripts/check_lending_network.py --account YOUR_PUBLIC_ADDRESS
 ```
 
-Tests use temporary databases and mock ledger responses. GitHub Actions runs them on pushes and pull requests.
+Unit tests mock RPC responses and exercise real local signature cryptography; they do not prove live lending. The diagnostic makes read-only network requests and exits 2 when prerequisites are missing. Browser checks cover pool navigation, mobile overflow, unavailable balances, missing wallet handling, workflow and invoice form rendering.
 
-With Flask running, try the investor and review flow:
-
-```sh
-python scripts/demo_backend.py
-```
-
-Each run creates demo records, including a pending contribution intent and a locally approved request with review history. No funds move. The endpoint contracts and individual examples are in [docs/API.md](docs/API.md).
+Historical simulation APIs are disabled by default. `ENABLE_SIMULATION=true` enables legacy local demonstration endpoints for development only; the current UI remains the ledger UI. Historical contracts are retained in `docs/API.md` and `docs/MARKET.md`.
 
 ## Three workstreams
 
@@ -128,19 +92,4 @@ docs/                    API contract and team task plan
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md). Pick your assigned GitHub issue, create a feature branch, and open a pull request into `main`. Ask another teammate to review. Agree on changes to shared endpoint fields in [docs/API.md](docs/API.md) before integrating them.
 
-The local draft pool is an application record, not an XRPL AMM or native lending object. The XRPL workstream will choose the appropriate ledger mechanism before adding deposits or payments. Use synthetic business data and Devnet test funds throughout the hackathon.
-
-References: [Flask application factories](https://flask.palletsprojects.com/en/stable/patterns/appfactories/), [XRPL Python quickstart](https://xrpl.org/docs/tutorials/get-started/get-started-python), [XRPL Devnet features](https://xrpl.org/docs/tutorials/advanced-developer-topics/protocol-development/testing-devnet-features).
-
-### RLUSD lending demo
-
-The dark web app includes pool exploration, investor signup/sign-in and personal portfolios, invoice-backed borrower applications, and a manual demo review console. Apply pending migrations using `python -m flask migrate-db`, then start the existing Flask server. The original XRP APIs remain separate.
-
-- **Pools:** Nine fictional businesses use the same risk model as new applications. Borrowing rates, weighted risk, allocations, reserves, and projected pool yields are calculated from the portfolio.
-- **Investors:** Create an account with a name, email, password, risk preference, and risk acknowledgement. Passwords are hashed; a signed session identifies the investor. Deposits are simulated and retry-safe. Each investor sees only their own holdings; old anonymous deposits remain unassigned pool capital.
-- **Borrowers:** Submit business details, a debtor, invoice reference, face value, deadline, requested amount, business age, debtor late-payment rate, and a PDF/PNG/JPEG invoice (maximum 5 MB). A future deadline within 180 days is required; advances cannot exceed 85% of invoice value.
-- **Review:** The local demo console lets a reviewer download the invoice, inspect the score breakdown, record three verification checks and a note, then approve or reject. Approval rechecks the deadline, recalculates terms, and atomically allocates available capital in the assigned pool. Pending and rejected requests never consume capital. Decisions retain an audit record.
-
-This remains a local prototype: the review console has no reviewer authorization, real debtor or document verification is not automated, and no RLUSD moves on a ledger. Invoice content must be inspected manually; upload validation checks size and file signature only. Loan repayments, withdrawals, KYC, and interest settlement are not implemented. Use fictional data and keep the server bound to localhost.
-
-The algorithm, API contract, assumptions, and validation are documented in [docs/MARKET.md](docs/MARKET.md). Set `FLASK_SECRET_KEY` to supply a stable session key; otherwise a private key file is created in the ignored instance directory. Deleting that file invalidates saved sessions.
+See [live integration and workflow](docs/LENDING_INTEGRATION.md) for protocol boundaries and remaining work.

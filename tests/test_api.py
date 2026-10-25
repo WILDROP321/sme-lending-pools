@@ -26,7 +26,7 @@ def test_pool_persists_across_app_instances(app, client):
     response = client.post("/api/pools", json={"name": "Working Capital"})
     assert response.status_code == 201
     assert response.json["pool"]["status"] == "draft"
-    second_app = create_app({"TESTING": True, "DATABASE": app.config["DATABASE"]})
+    second_app = create_app({"TESTING": True, "ENABLE_SIMULATION": True, "DATABASE": app.config["DATABASE"]})
     assert second_app.test_client().get("/api/pools/1").json["pool"]["name"] == "Working Capital"
     assert len(client.get("/api/pools").json["pools"]) == 1
 

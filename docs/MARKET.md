@@ -1,3 +1,5 @@
+> Historical prototype documentation. Legacy financial APIs require `ENABLE_SIMULATION=true`; they are not native RLUSD lending. See [current integration](LENDING_INTEGRATION.md).
+
 # RLUSD demo market
 
 ## Risk classification and pricing

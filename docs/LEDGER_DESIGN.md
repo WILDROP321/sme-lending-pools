@@ -1,3 +1,5 @@
+> Historical prototype documentation. Legacy financial APIs require `ENABLE_SIMULATION=true`; they are not native RLUSD lending. See [current integration](LENDING_INTEGRATION.md).
+
 # XRPL Devnet pool design (Benjamin, issue #3)
 
 ## Mechanism chosen

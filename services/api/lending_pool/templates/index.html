@@ -1,49 +1,35 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark">
-  <title>Flow — Invoice lending</title>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark"><title>Flow — RLUSD lending</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script defer src="{{ url_for('static', filename='vendor/gemwallet-api-3.8.0.js') }}"></script>
   <script defer src="{{ url_for('static', filename='app.js') }}"></script>
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="#pools" aria-label="Flow home"><span class="brand-mark">f</span>flow<span class="network">RLUSD</span></a>
+  <aside class="sidebar">
+    <a class="brand" href="#pools"><span class="brand-mark">f</span>flow<span class="network">RLUSD</span></a>
+    <p class="nav-label">EXPLORE</p>
     <nav aria-label="Main navigation">
-      <a href="#pools" data-page="pools">Pools</a>
-      <a href="#portfolio" data-page="portfolio">Portfolio</a>
-      <a href="#borrow" data-page="borrow">Borrow</a>
-      <a href="#review" data-page="review">Demo review</a>
+      <a href="#pools" data-page="pools">◈ &nbsp; Lending pools</a>
+      <a href="#portfolio" data-page="portfolio">◫ &nbsp; Your positions</a>
+      <a href="#borrow" data-page="borrow">↗ &nbsp; Borrow</a>
+      <a href="#applications" data-page="applications">≡ &nbsp; Applications</a>
+      <a href="#activity" data-page="activity">↔ &nbsp; Transactions</a>
+      <a href="#workflow" data-page="workflow">◎ &nbsp; How it works</a>
     </nav>
-    <div id="account"></div>
-  </header>
-  <main>
-    <div id="global-status" role="status" aria-live="polite"></div>
-    <section id="content"><div class="empty">Loading market…</div></section>
-    <noscript>This application needs JavaScript to display pools and submit requests.</noscript>
-  </main>
-  <footer><span><span class="status-dot"></span> Local simulation</span><span>Fictional businesses · No real funds move · Returns are estimates</span></footer>
-  <dialog id="auth-dialog" aria-labelledby="auth-title">
-    <div class="dialog-heading"><span class="eyebrow">INVESTOR ACCOUNT</span><button type="button" id="close-auth" class="icon-button" aria-label="Close account dialog">×</button></div>
-    <h2 id="auth-title">Start investing.</h2>
-    <p id="auth-description" class="muted">Create a local account to track your share of each pool.</p>
-    <div class="segmented"><button type="button" id="register-mode" aria-pressed="true">Create account</button><button type="button" id="login-mode" aria-pressed="false">Sign in</button></div>
-    <form id="auth-form">
-      <fieldset>
-        <div class="register-only"><label>Full name<input name="name" autocomplete="name" maxlength="120" required placeholder="Alex Morgan"></label></div>
-        <label>Email<input name="email" type="email" autocomplete="email" maxlength="254" required placeholder="you@example.com"></label>
-        <label>Password<input name="password" type="password" autocomplete="new-password" minlength="10" maxlength="128" required placeholder="At least 10 characters"></label>
-        <div class="register-only">
-          <label>Preferred risk tier<select name="preference"><option value="core">Core Income · Lower risk</option><option value="balanced">Balanced Growth · Moderate risk</option><option value="opportunity">Opportunity · Higher risk</option></select></label>
-          <label class="check"><input name="risk_acknowledged" type="checkbox" required><span>I understand returns are estimates and invested capital can be lost.</span></label>
-        </div>
-        <button class="primary full" id="auth-submit">Create account</button>
-      </fieldset>
-      <p id="auth-status" class="form-status" role="status"></p>
-    </form>
-    <p class="caption">Local demo accounts. No wallet connection or real deposits.</p>
-  </dialog>
+    <div class="sidebar-note"><strong>Verifiable by design.</strong><p>Balances come from validated ledgers. Every confirmed action has a transaction hash.</p><a href="https://xrpl.org/resources/dev-tools/xrp-faucets" target="_blank" rel="noopener">Official network resources ↗</a></div>
+  </aside>
+  <div class="app-shell">
+    <header class="topbar"><span id="network-label" class="muted">Checking ledger connection…</span><div id="account"><button id="connect-wallet">Connect GemWallet</button></div></header>
+    <main>
+      <div id="network-status" role="status" aria-live="polite"></div>
+      <div id="global-status" role="status" aria-live="polite"></div>
+      <section id="content"><div class="empty">Loading pools…</div></section>
+      <noscript>JavaScript is required for wallet signing and pool browsing.</noscript>
+    </main>
+    <footer><span>RLUSD lending · Test networks only</span><span>XRP is required only for network fees and account reserves.</span></footer>
+  </div>
 </body>
 </html>

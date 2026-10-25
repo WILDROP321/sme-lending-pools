@@ -1,6 +1,7 @@
 """Application factory shared by the development server and tests."""
 
 import os
+import json
 import secrets
 from pathlib import Path
 
@@ -17,6 +18,13 @@ def create_app(test_config=None):
         XRPL_JSON_RPC_URL=os.getenv(
             "XRPL_JSON_RPC_URL", "https://s.devnet.rippletest.net:51234/"
         ),
+        LENDING_NETWORK=os.getenv("LENDING_NETWORK", "devnet"),
+        LENDING_NETWORK_ID=os.getenv("LENDING_NETWORK_ID") or None,
+        LENDING_RLUSD_ISSUER=os.getenv("LENDING_RLUSD_ISSUER", ""),
+        LENDING_RLUSD_ISSUER_SOURCE=os.getenv("LENDING_RLUSD_ISSUER_SOURCE", ""),
+        LENDING_EXPLORER_TX_URL=os.getenv("LENDING_EXPLORER_TX_URL", ""),
+        LENDING_VAULTS=json.loads(os.getenv("LENDING_VAULTS", "{}")),
+        ENABLE_SIMULATION=os.getenv("ENABLE_SIMULATION", "false").lower() == "true",
         MAX_CONTENT_LENGTH=6 * 1024 * 1024,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
@@ -44,6 +52,8 @@ def create_app(test_config=None):
     app.register_blueprint(api)
     from .market import market
     app.register_blueprint(market)
+    from .lending import lending
+    app.register_blueprint(lending)
 
     @app.get("/")
     def index():

@@ -6,7 +6,7 @@ from lending_pool.db import init_db
 
 @pytest.fixture
 def app(tmp_path):
-    application = create_app({"TESTING": True, "DATABASE": str(tmp_path / "test.sqlite")})
+    application = create_app({"TESTING": True, "ENABLE_SIMULATION": True, "DATABASE": str(tmp_path / "test.sqlite")})
     with application.app_context():
         init_db()
     return application

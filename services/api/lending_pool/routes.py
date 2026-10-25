@@ -11,6 +11,12 @@ from .reviews import InvalidTransition, REVIEW_TARGETS, review_request
 api = Blueprint("api", __name__, url_prefix="/api")
 
 
+@api.before_request
+def legacy_api_boundary():
+    if not current_app.config['ENABLE_SIMULATION'] and request.path not in ('/api/health',):
+        abort(410, description='Legacy XRP/demo API is disabled. Use /api/lending for RLUSD ledger operations.')
+
+
 def json_body(allowed_fields=None):
     body = request.get_json()
     if not isinstance(body, dict):
@@ -46,7 +52,7 @@ def record_or_404(table, record_id, label):
 
 @api.get("/health")
 def health():
-    return jsonify(status="ok", service="sme-lending-pools", mode="local-prototype")
+    return jsonify(status="ok", service="sme-lending-pools", mode="simulation" if current_app.config["ENABLE_SIMULATION"] else "ledger")
 
 
 @api.get("/pools")

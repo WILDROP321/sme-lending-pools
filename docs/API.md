@@ -1,3 +1,5 @@
+> Historical prototype documentation. Legacy financial APIs require `ENABLE_SIMULATION=true`; they are not native RLUSD lending. See [current integration](LENDING_INTEGRATION.md).
+
 # Starter API contract
 
 Base URL: `http://127.0.0.1:5001`. Request and response bodies use JSON. POST requests require `Content-Type: application/json`.

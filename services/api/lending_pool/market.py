@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from uuid import UUID
 
-from flask import Blueprint, abort, jsonify, request, send_file, session
+from flask import Blueprint, abort, current_app, jsonify, request, send_file, session
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
@@ -23,6 +23,12 @@ MAX_DOCUMENT = 5 * 1024 * 1024
 
 @market.before_request
 def same_origin_mutations():
+    if not current_app.config['ENABLE_SIMULATION']:
+        # Invoice collection is off-chain. Financial demo endpoints remain disabled.
+        if request.path != '/api/market/requests' and not re.fullmatch(r'/api/market/requests/[0-9]+/document', request.path):
+            abort(410, description='Simulation endpoint disabled. Financial state comes from /api/lending.')
+        from .lending import wallet
+        wallet()
     if request.method == 'POST':
         origin = request.headers.get('Origin')
         if request.headers.get('Sec-Fetch-Site') == 'cross-site' or (origin and origin != request.host_url.rstrip('/')):
@@ -93,6 +99,10 @@ def requests_data():
         document_name,created_at,approved_at FROM market_requests ORDER BY id DESC''').fetchall()
     result = []
     for row in rows:
+        if not current_app.config['ENABLE_SIMULATION']:
+            owner = get_db().execute('SELECT wallet_address FROM market_requests WHERE id=?', (row['id'],)).fetchone()[0]
+            if owner != session.get('wallet_address'):
+                continue
         record = dict(row)
         record['assessment'] = json.loads(record['assessment']) if record['assessment'] else None
         record['reviews'] = [dict(r) for r in get_db().execute('SELECT * FROM market_reviews WHERE request_id=? ORDER BY id', (row['id'],))]
@@ -103,6 +113,8 @@ def requests_data():
 
 
 def snapshot():
+    if not current_app.config['ENABLE_SIMULATION']:
+        return dict(requests=requests_data(), mode='offchain_underwriting', financial_effect=False)
     db = get_db()
     if db.in_transaction:
         return _snapshot()
@@ -235,6 +247,11 @@ def quote():
         ownership_pct=(pool['invested_cents']+amount)/capital*100, apr=effective_apr))
 
 
+@market.get('/requests')
+def applications():
+    return jsonify(snapshot())
+
+
 @market.post('/requests')
 def borrow():
     data = request.form
@@ -264,10 +281,10 @@ def borrow():
             abort(409, description='This debtor and invoice reference already have a borrow request.')
         db.execute('''INSERT INTO market_requests(company,sector,purpose,invoice_ref,debtor,due_date,
             invoice_cents,amount_cents,risk,pool,years_trading,late_payment_pct,assessment,invoice_key,
-            document_name,document_type,document_data,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+            document_name,document_type,document_data,created_at,wallet_address) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
             (*fields.values(), invoice, amount, assessment['score'], assessment['pool'], years, late,
              json.dumps(assessment), key, secure_filename(upload.filename) or 'invoice', mime, content,
-             datetime.now(timezone.utc).isoformat()))
+             datetime.now(timezone.utc).isoformat(), session.get('wallet_address')))
     return jsonify(snapshot()), 201
 
 
@@ -278,6 +295,10 @@ def document(request_id):
     row = get_db().execute('SELECT document_data,document_name,document_type FROM market_requests WHERE id=?', (request_id,)).fetchone()
     if row is None or row['document_data'] is None:
         abort(404, description='No invoice document is available for this request.')
+    if not current_app.config['ENABLE_SIMULATION']:
+        owner = get_db().execute('SELECT wallet_address FROM market_requests WHERE id=?', (request_id,)).fetchone()[0]
+        if owner != session.get('wallet_address'):
+            abort(404)
     response = send_file(io.BytesIO(row['document_data']), mimetype=row['document_type'],
                          as_attachment=True, download_name=row['document_name'], max_age=0)
     response.headers['X-Content-Type-Options'] = 'nosniff'
